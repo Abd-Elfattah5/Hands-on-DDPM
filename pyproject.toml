@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hands-on-ddpm"
+version = "0.1.0"
+description = "A modular, from-scratch implementation and benchmarking pipeline for Denoising Diffusion Probabilistic Models (DDPM) in PyTorch"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "torch>=2.2.0",
+    "torchvision>=0.17.0",
+    "typer>=0.9.0",
+    "pyyaml>=6.0",
+    "matplotlib>=3.8.0",
+    "pillow>=10.0",
+    "tqdm>=4.66.0",
+    "scipy>=1.12.0",
+    "scikit-learn>=1.4.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+]
+
+[project.scripts]
+ddpm = "src.cli.main:app"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src*"]

@@ -1,0 +1,38 @@
+experiment:
+  name: "cifar10_baseline"
+  seed: 42
+  device: "auto"
+  output_dir: "artifacts/runs/cifar10_baseline"
+
+data:
+  dataset: "cifar10"
+  data_dir: "data"
+  batch_size: 64
+  num_workers: 4
+  val_split: 0.1
+
+model:
+  in_channels: 3
+  out_channels: 3
+  image_size: 32
+  channels: [64, 128, 256]
+  num_res_blocks: 2
+  attention_resolutions: [16, 8]
+  num_heads: 4
+  dropout: 0.1
+  time_embed_dim: 256
+
+diffusion:
+  timesteps: 1000
+  beta_schedule: "linear"
+  beta_start: 0.0001
+  beta_end: 0.02
+
+training:
+  epochs: 100
+  lr: 0.0002
+  weight_decay: 0.0
+  ema_decay: 0.9999
+  gradient_clip_val: 1.0
+  save_every: 10
+  eval_every: 2
