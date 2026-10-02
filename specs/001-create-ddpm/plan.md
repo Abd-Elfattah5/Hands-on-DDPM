@@ -1,0 +1,211 @@
+# Implementation Plan: From-Scratch Denoising Diffusion Probabilistic Model (DDPM)
+
+**Branch**: `001-create-ddpm` | **Date**: 2026-10-02 | **Spec**: [spec.md](./spec.md)
+
+**Input**: Feature specification from `/specs/001-create-ddpm/spec.md`
+
+## Summary
+
+Build an unconditional DDPM (Ho et al. 2020) from scratch on CIFAR-10 as Part 2 of GenCV003, mirroring
+the module layout, registry pattern, CLI vocabulary, checkpoint convention and evaluation protocol of
+the sibling `Hands-on VAE` repository. The pipeline has these parts:
+- registered linear and cosine noise schedules (T = 1000);
+- a 16.06 M-parameter time-conditioned U-Net [64, 128, 256] with attention at 16×16 and 8×8;
+- L_simple training with EMA (0.9999) at an effective batch of 128 (32 × 4 locally);
+- Algorithm 2 sampling, denoising strips and nearest-neighbor checks;
+- FID/IS computed with the VAE's exact Inception protocol (5,000 vs 5,000, 10 IS splits);
+- a benchmark JSON holding every DDPM value needed for the final, manually written VAE comparison.
+
+Everything runs locally through the `ddpm` CLI within a measured 3 GB GPU budget, and the README
+documents the local path. The official long training run uses a thin Colab notebook
+(`notebooks/ddpm_colab_training.ipynb`) that only calls the same CLI, with checkpoints on Google
+Drive and `--resume` across disconnects. Research decisions are in [research.md](./research.md).
+
+## Technical Context
+
+**Language/Version**: Python 3.12 (venv `DDPM/`)
+
+**Primary Dependencies**: PyTorch 2.6.0+cu124, torchvision 0.21.0 (CIFAR-10, Inception-v3 weights for
+metrics only), typer, PyYAML, numpy, scipy (`sqrtm` for FID), matplotlib, Pillow, tqdm, scikit-learn;
+pytest (dev)
+
+**Storage**: Local files: YAML configs; `.pt` checkpoints; JSON metrics; PNG artifacts under
+`artifacts/` (gitignored); on Colab, the run directory is on Google Drive
+
+**Testing**: pytest (`tests/unit/`, plus CUDA-only memory tests skipped without a GPU), and the
+`ddpm verify` pre-training gate
+
+**Target Platform**: Linux/WSL2 with an NVIDIA Quadro T2000 (4 GB, 3 GB budget) for development and
+local training; Google Colab T4 (15 GB) for the official training run
+
+**Project Type**: Single-project Python library + CLI (`ddpm`) + one driver notebook
+
+**Performance Goals**:
+- `verify` < 2 min (SC-001).
+- Training ≈ 0.84 s per optimizer step on the T2000: ≈ 8.5 h for 100 epochs locally, ≈ 3.5–4 h
+  estimated on a T4.
+- 5,000-image benchmark < 3.5 h on the T2000 (SC-007).
+
+**Constraints**:
+- Total GPU memory per process ≤ 3072 MiB; measured 1,625 MiB at train 32 × 4, 2,061 MiB at sample
+  batch 256, 2,269 MiB for Inception at batch 64.
+- fp32 by default.
+- No attention at 32×32.
+- No pre-built diffusion libraries (Constitution I).
+- Deterministic for a fixed seed on the same hardware.
+
+**Scale/Scope**: CIFAR-10 (45k train / 5k val / 10k test); 1 model variant (unconditional baseline);
+6 CLI commands; ~25 source modules; 3 configs; 1 notebook; 1 technical report
+
+## Constitution Check
+
+*GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
+
+| Principle | Requirement | Status | Verification Mechanism |
+|---|---|---|---|
+| I. From-Scratch Diffusion Modeling | Schedules, q(x_t\|x₀), posterior, ε-parametrization, L_simple, time embedding, U-Net and Algorithm 2 authored in-repo; no `diffusers`; pretrained weights only for Inception metrics | PASS | Code review; `pyproject.toml` has no diffusion libraries; unit tests check the formulas against hand-derived values |
+| II. Deterministic Reproducibility | Single seed for all RNGs; versioned config, checkpoints with EMA, provenance; README reproduction commands | PASS | `seed_everything`; checkpoint `provenance`, `rng_state`, `config`; `resolved_config.yaml`; determinism test (same seed → identical samples) |
+| III. Standardized Benchmarking & Cross-Model Comparison | CIFAR-10 with the same splits and preprocessing as the VAE; FID/IS with an identical protocol; qualitative grids/strips; side-by-side table with both VAEs | PASS | `metrics.py` ported verbatim; benchmark JSON stores all DDPM comparison values; VAE rows are added manually to the final report; metric unit tests ported from the VAE |
+| IV. Test-Driven Tensor & Diffusion Integrity | Shape, schedule, forward-process, gradient-flow, stability and sampling-determinism tests before training | PASS | `tests/unit/*` (see structure); `ddpm verify` gate; Foundational phase tasks precede training tasks |
+| V. CLI-Driven Pipeline & Artifact Observability | Every workflow through the CLI; machine-readable metrics; organized artifacts | PASS | `contracts/cli.md`; the notebook only calls the CLI; JSON metrics (the constitution's "JSON/CSV" is satisfied by JSON alone); `artifacts/{runs,samples,strips,eval}` |
+| Tech Stack: Dependency isolation (`DDPM/`) | venv + `pyproject.toml` manifest | PASS | venv created; `pip install -e ".[dev]"` verified with CUDA |
+| Tech Stack: Hardware budget | Defaults fit the T2000; no 32×32 attention; accumulation for a larger effective batch | PASS | GPU probe (`research/gpu_memory_results.md`); `verify` memory check; `test_memory_budget.py` |
+| Tech Stack: Ecosystem consistency | Layout, CLI, config schema and reports mirror the VAE; deviations need an ADR | PASS | Parity table (research §15); the Colab path and notebook rationale are recorded in research §13 and `ARCHITECTURE_DEEP_DIVE.md` (no ADRs in this feature, by user decision) |
+| Prohibited patterns | No training loop in an unversioned notebook | PASS | The Colab notebook is versioned (`!notebooks/*.ipynb`) and contains no model or training code, only CLI calls |
+| Quality gates 1–5 | Pre-training gate, per-epoch tracking, evaluation gate, report, README | PASS | Plan phases P2/P3, P4, P6, P7 below |
+
+**Post-design re-check (after Phase 1)**: PASS. The data model, contracts and quickstart introduce no
+new dependencies or violations. The notebook is constrained to CLI calls, and the fused attention
+kernel is a tensor primitive (research §5).
+
+## Project Structure
+
+### Documentation (this feature)
+
+```text
+specs/001-create-ddpm/
+├── spec.md                      # Feature specification (with Clarifications)
+├── plan.md                      # This file
+├── research.md                  # Phase 0: decisions + VAE parity gap analysis
+├── data-model.md                # Phase 1: entities, tensor contracts, config/checkpoint/report schemas
+├── quickstart.md                # Phase 1: runnable validation scenarios
+├── contracts/
+│   ├── cli.md                   # `ddpm` command contract
+│   └── component-interfaces.md  # Base classes, registries, trainer/eval signatures
+├── research/
+│   ├── gpu_memory_probe.py      # Empirical memory probe (evidence for the 3 GB budget)
+│   └── gpu_memory_results.md
+├── checklists/
+│   └── requirements.md          # Spec quality checklist
+└── tasks.md                     # Phase 2 output (/speckit.tasks; not created here)
+```
+
+### Source Code Layout
+
+Mirrors `Hands-on VAE`. Entries marked **(new)** have no VAE counterpart; **(port)** files are adapted
+from the VAE with minimal changes.
+
+```text
+configs/
+├── cifar10_baseline.yaml        # Local default: T=1000 linear, UNet [64,128,256], batch 32 × accum 4
+└── cifar10_colab.yaml           # (new) Same model/optimization; batch 128 × accum 1, num_workers 2
+
+notebooks/
+└── ddpm_colab_training.ipynb    # (new) Thin Colab driver: Drive mount → install → verify → train --resume → benchmark
+
+src/
+├── cli/
+│   └── main.py                  # Typer app `ddpm`: verify, train, evaluate, sample, denoise-strip, benchmark
+├── configs/
+│   └── schema.py                # Dataclass sections, load_config, validate_config, ConfigError
+├── data/
+│   └── cifar10.py               # (port) [-1,1] transforms, random flip, seeded 45k/5k split, loaders, unnormalize
+├── models/
+│   ├── base.py                  # BaseNoiseSchedule, BaseDenoiser, BaseDiffusion
+│   ├── types.py                 # DiffusionOutput, LossOutput, SamplingOutput
+│   ├── registry.py              # SCHEDULE/DENOISER/DIFFUSION registries, build_diffusion_from_config
+│   ├── schedules.py             # (new) linear + cosine schedules
+│   ├── embeddings.py            # (new) Sinusoidal timestep embedding + MLP
+│   ├── attention.py             # (new) Multi-head spatial self-attention (GroupNorm, SDPA)
+│   ├── resnet.py                # (new) Time-conditioned residual block, Downsample, Upsample
+│   ├── unet.py                  # (new) U-Net assembly (registered "unet")
+│   └── gaussian_diffusion.py    # (new) Buffers, q_sample, L_simple, p_sample, sample (Algorithm 2), trajectory
+├── training/
+│   ├── ema.py                   # (new) EMA shadow weights
+│   ├── checkpoint.py            # (port+) Adds EMA, scaler, history, rng_state, best_val_loss
+│   └── trainer.py               # DDPMTrainer: accumulation, warmup, clipping, EMA, AMP opt-in, NaN/OOM guard
+├── evaluation/
+│   ├── metrics.py               # (port, verbatim maths) Inception extractor, FID, IS; batched DDPM sampling
+│   ├── evaluator.py             # Fixed-seed test noise-prediction loss
+│   └── visualizer.py            # Sample grid, denoise strip, nearest-neighbor panel, upscale_tensor
+└── utils/
+    ├── seeding.py               # (port) seed_everything + make_generator(seed, device)
+    ├── logging.py               # (port) get_logger (ISO-8601)
+    └── memory.py                # (new) GPU memory measurement helpers used by verify and tests
+
+tests/
+├── conftest.py                  # device, tiny config (channels [32,64], T=50), synthetic batches
+└── unit/
+    ├── test_foundations.py      # types, base classes, config validation (incl. no 32×32 attention)
+    ├── test_registry.py         # registration, KeyError messages, build_diffusion_from_config
+    ├── test_schedules.py        # linear/cosine values, monotonic ᾱ, ᾱ_T≈0, cosine clipping
+    ├── test_forward_process.py  # q_sample closed form, statistics at t=T−1, posterior coefficients
+    ├── test_shapes.py           # embedding, resblock, attention (SDPA vs einsum), U-Net I/O shapes
+    ├── test_loss.py             # L_simple value, finite, non-zero gradients to all params
+    ├── test_sampling.py         # Algorithm 2 shapes, clamp, z=0 at last step, seeded determinism, trajectory
+    ├── test_ema.py              # EMA update maths, copy_to, state round trip
+    ├── test_checkpoint.py       # save/restore incl. EMA, history, rng; resume continues epoch/step
+    ├── test_trainer.py          # 2-step CPU smoke train, accumulation equivalence, NaN guard
+    ├── test_metrics.py          # (port) FID=0 identical, known shift, IS uniform≈1, diverse
+    ├── test_visualizer.py       # grid, denoise strip layout, nearest-neighbor panel files
+    ├── test_cli.py              # Typer CliRunner: --help/--version, verify on tiny config, exit codes
+    └── test_memory_budget.py    # CUDA-only: train/sample/Inception ≤ 3072 MiB
+
+docs/
+└── reports/
+    └── 001-baseline-ddpm-report.md   # GenCV003 Deliverable (a); written after results exist
+
+README.md                        # Overview, structure, local install + quick start + CLI guide, Colab section
+HANDOFF.md                       # Updated per phase
+CONTEXT.md                       # (parity, created) Domain glossary
+ARCHITECTURE_DEEP_DIVE.md        # (parity, created) Design rationale + VAE→DDPM analysis
+.gitignore                       # `*.ipynb` rule replaced so notebooks/ is tracked (done)
+pyproject.toml                   # + explicit numpy dependency (done)
+```
+
+**Structure Decision**: Single Python project matching `Hands-on VAE`: `src/` subpackages without a
+top-level `src/__init__.py`, console script `ddpm = "src.cli.main:app"`, unit tests in `tests/unit/`.
+The only structural additions relative to the VAE are `notebooks/` (Colab driver) and
+`src/utils/memory.py`. Deliberately omitted relative to the VAE: MNIST config/loader, ADRs, VAE
+reference metrics and comparison code (the comparison is written manually in the report), CSV
+outputs, and `.gemini/`/`graphify-out/` (graphify runs after implementation).
+
+## Implementation Phases
+
+These phases map to the `tasks.md` phase headings generated by `/speckit.tasks`, and follow the VAE's
+Setup → Foundational → User Stories → Polish order. Each phase ends with a verifiable checkpoint.
+
+| Phase | Scope | Spec coverage | Checkpoint |
+|---|---|---|---|
+| P1 Setup | Ported utils (seeding, logging, memory), `schema.py`, 2 configs, `tests/conftest.py` | FR-013, FR-018 | `pytest` collects; configs validate |
+| P2 Foundational | `types.py`, `base.py`, `registry.py`, `schedules.py`, CIFAR-10 data loader, checkpoint skeleton; tests for foundations, registry, schedules | FR-002, FR-003, FR-012–FR-014 | Schedule and registry tests pass |
+| P3 US1 Verify (P1) | `embeddings.py`, `attention.py`, `resnet.py`, `unet.py`, `gaussian_diffusion.py` (q_sample, L_simple); `ddpm verify` + `--version`; tests for shapes, forward process, loss, memory budget | FR-001, FR-004, FR-005, FR-008–FR-011, SC-001, SC-002 | `ddpm verify` 7/7 ✓, ≤ 3072 MiB |
+| P4 US2 Train (P1) 🎯 MVP | `ema.py`, full `checkpoint.py`, `DDPMTrainer` (accumulation, warmup, clip, EMA validation, AMP opt-in, NaN/OOM guard, history restore), `ddpm train` with overrides; EMA sample grids; tests for EMA, checkpoint, trainer | FR-015–FR-018b, FR-022, SC-003 | 2-epoch smoke train + resume per quickstart §4 |
+| P5 US3 Sample (P2) | Algorithm 2 `p_sample`/`sample` with generator and trajectory, batched writing; `visualizer.py` grid + strip; `ddpm sample`, `ddpm denoise-strip`; sampling tests | FR-006, FR-007, FR-019–FR-021, SC-006 | Identical images for the same seed; strip rendered |
+| P6 US4 Evaluate (P2) | `metrics.py` port, `evaluator.py`, nearest-neighbor panel, `ddpm evaluate`, `ddpm benchmark` (resumable samples); metric and visualizer tests | FR-023–FR-026, SC-007, SC-010 | Benchmark JSON on the smoke checkpoint |
+| P7 Colab & Official Training | `cifar10_colab.yaml`, `notebooks/ddpm_colab_training.ipynb`; local full-run instructions; official T4 run; benchmark of the final EMA checkpoint | FR-018a, FR-031, SC-004, SC-005 | Trained checkpoint on Drive; `benchmark_metrics.json` |
+| P8 US5 Deliver (P3) | README (verify quick start + CLI guide match the real commands; Colab section; results table), report `001-baseline-ddpm-report.md` with the manual VAE comparison, update `ARCHITECTURE_DEEP_DIVE.md`/`CONTEXT.md` with results, HANDOFF update | FR-027, FR-029–FR-031, SC-008, SC-009 | README walkthrough on a clean clone; report complete |
+| P9 Polish | `test_cli.py`, contract/docs drift check (`contracts/cli.md` and README vs. `ddpm --help`), full `pytest`, quickstart run-through; graphify afterwards (user) | All | All quickstart scenarios pass |
+
+**Dependencies**: P1 → P2 → P3 → P4 → (P5 ∥ P6 parts that do not need samples) → P7 → P8 → P9.
+P5 and P6 can be developed in parallel on a smoke checkpoint. P7 training (hours) can run while P8
+documentation is drafted.
+
+## Complexity Tracking
+
+*No constitutional violations identified.* Two items are recorded for transparency:
+
+| Item | Why Needed | Simpler Alternative Rejected Because |
+|---|---|---|
+| Versioned Colab notebook (`notebooks/`, tracked in git) | User-chosen faster training on a T4 (Clarification Q4) | A self-contained notebook (as in the VAE) would duplicate the model and violate the Prohibited Patterns rule; the notebook here only calls the CLI |
+| `torch.nn.functional.scaled_dot_product_attention` in attention | 170 MiB less memory, ~6% faster (measured) | Explicit einsum kept only as a test reference; `nn.MultiheadAttention` hides the projection layout |

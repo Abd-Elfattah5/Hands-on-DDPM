@@ -39,9 +39,8 @@ runs/
 *.onnx
 *.pdf
 
-# Jupyter Notebook checkpoints
+# Jupyter Notebook checkpoints (notebooks themselves are tracked, e.g. notebooks/ddpm_colab_training.ipynb)
 .ipynb_checkpoints/
-*.ipynb
 
 # IDE / Editor
 .vscode/

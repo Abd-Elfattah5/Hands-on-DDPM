@@ -39,6 +39,10 @@ against assignment `GenCV003` (Part 2: DDPM) and the sibling `Hands-on VAE` proj
 - Q: Where does the official training run for reported results happen? → A: Verify locally; train
   on a free Colab T4 with the same config and seed, checkpoints on Google Drive, and `--resume`
   across disconnects; fp32 by default, mixed precision optional.
+- Q: Which output formats and comparison tooling are in scope? → A: Metrics are JSON only (no CSV).
+  The DDPM vs. VAE comparison table is written manually in the final report; no VAE metric files or
+  comparison code in this repository. No MNIST configuration. The nearest-neighbor panel is the
+  `--nearest` flag of `sample`.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -158,10 +162,10 @@ sample count, and generation time, computed with the VAE's protocol.
    Score over 5,000 generated images against 5,000 real CIFAR-10 test images, using the same feature
    extractor, image preprocessing, and 10-split Inception Score method as the `Hands-on VAE` project.
 3. **Given** evaluation completes, **When** results are saved, **Then** a timestamped summary in
-   JSON (and CSV) records the metrics, sample count, seed, checkpoint identity, and wall-clock time.
-4. **Given** a trained checkpoint, **When** qualitative artifacts are generated, **Then** the system
-   produces a large sample grid and a nearest-neighbor panel that pairs generated images with their
-   closest real training images, to check for memorization.
+   JSON file records the metrics, sample count, seed, checkpoint identity, and wall-clock time.
+4. **Given** a trained checkpoint, **When** `sample` runs with the `--nearest` flag, **Then** the
+   system produces a nearest-neighbor panel: one row per generated image, showing the generated
+   image followed by its 3 closest CIFAR-10 training images, to check for memorization.
 
 ---
 
@@ -180,9 +184,10 @@ reported metrics within the stated tolerance.
 
 **Acceptance Scenarios**:
 
-1. **Given** DDPM and VAE metrics exist, **When** the benchmark command runs, **Then** it produces a
-   side-by-side comparison table (FID, Inception Score, generation time per image, parameter count,
-   training time) for DDPM, baseline VAE, and enhanced VAE.
+1. **Given** the DDPM benchmark JSON exists, **When** the author writes the final report, **Then**
+   it contains a side-by-side comparison table (FID, Inception Score, generation time per image,
+   parameter count, training time) for DDPM, baseline VAE, and enhanced VAE, with VAE values copied
+   manually from the `Hands-on VAE` results.
 2. **Given** the report is complete, **When** a reviewer reads it, **Then** it documents
    implementation steps, mathematical explanations, experimental results, qualitative assessment
    (diversity, realism, thematic consistency), and conclusions, and states the main difference
@@ -206,8 +211,6 @@ reported metrics within the stated tolerance.
   and epoch, and does not overwrite the best checkpoint.
 - **Missing or incompatible checkpoint**: Sampling/evaluation fails fast with a message naming the
   missing file or the configuration mismatch (e.g., schedule or channel widths differ).
-- **Missing VAE metrics**: The benchmark command still reports DDPM results and marks the VAE
-  columns as unavailable instead of failing.
 - **Colab session disconnect**: Because checkpoints are written to persistent storage every epoch,
   a disconnect loses at most one epoch; rerunning `train --resume` on a new session continues the run.
 - **Interrupted sampling for benchmarking**: Long sampling jobs save generated images in batches so
@@ -287,8 +290,10 @@ reported metrics within the stated tolerance.
 - **FR-021**: System MUST clip final generated images to the valid pixel range before saving or
   scoring.
 - **FR-022**: System MUST save training loss curves and periodic EMA sample grids during training.
-- **FR-023**: System MUST produce a nearest-neighbor panel pairing generated images with their
-  closest real training images for memorization checks.
+- **FR-023**: System MUST produce a nearest-neighbor panel, exposed as the `--nearest` flag of the
+  `sample` command (not a separate command): for each generated image, find the 3 training images
+  with the smallest pixel-space (L2) distance and render one row per generated image (generated
+  image first, neighbors after) for memorization checks.
 
 **Evaluation and comparison**
 
@@ -296,11 +301,12 @@ reported metrics within the stated tolerance.
 - **FR-025**: System MUST compute FID and Inception Score with the `Hands-on VAE` protocol:
   5,000 generated images vs. 5,000 real test images, the same pretrained Inception feature extractor
   and image preprocessing, and Inception Score averaged over 10 splits (mean and standard deviation).
-- **FR-026**: System MUST write every evaluation result as a timestamped JSON and CSV summary
+- **FR-026**: System MUST write every evaluation result as a timestamped JSON summary
   including metric values, sample count, seed, checkpoint identity, and wall-clock times.
-- **FR-027**: System MUST produce a comparison table of DDPM, baseline VAE, and enhanced VAE
-  covering FID, Inception Score, generation time per image, parameter count, and training time,
-  reading VAE results from their recorded metric files.
+- **FR-027**: System MUST record in its benchmark JSON every DDPM value needed for the final
+  comparison table (FID, Inception Score, generation time per image, parameter count, training
+  time). The DDPM vs. VAE table itself is written manually in the final report; the system does not
+  read VAE metric files.
 
 **Interface and deliverables**
 
@@ -338,8 +344,8 @@ reported metrics within the stated tolerance.
   one generated image.
 - **Evaluation Report**: A timestamped record of quantitative metrics (test loss, FID, Inception
   Score), sample count, seed, checkpoint identity, and timing.
-- **Model Comparison**: A table combining DDPM, baseline VAE, and enhanced VAE metrics for the
-  report.
+- **Model Comparison**: A table in the final report combining DDPM results with baseline and
+  enhanced VAE metrics (VAE values entered manually by the author).
 
 ## Success Criteria *(mandatory)*
 
@@ -385,9 +391,9 @@ reported metrics within the stated tolerance.
 - **Training budget**: The default baseline trains for 100 epochs with per-step batch 32 and 4-step
   gradient accumulation (effective batch 128); if this cannot reach SC-004 within the hardware budget, the epoch count is
   increased and the change is recorded in the report rather than altering the architecture.
-- **VAE reference metrics**: Baseline VAE (FID 169.02) and enhanced VAE (FID 181.00) results are
-  taken from the recorded `Hands-on VAE` metric files and were produced with the same 5,000-sample
-  protocol; the VAE models are not retrained in this feature.
+- **VAE reference metrics**: Baseline VAE (FID 169.02) and enhanced VAE (FID 181.00) results were
+  produced with the same 5,000-sample protocol; the author adds them manually to the final report.
+  The VAE models are not retrained and no VAE files are copied into this repository.
 - **Protocol parity**: "Matching the VAE protocol" means the same sample count, real-image source
   (test split), Inception feature extractor, preprocessing, and Inception Score splitting; FID values
   are therefore comparable across both repositories but not to published 50,000-sample FID numbers.
