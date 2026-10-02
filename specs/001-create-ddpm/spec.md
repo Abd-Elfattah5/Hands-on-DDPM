@@ -36,6 +36,9 @@ against assignment `GenCV003` (Part 2: DDPM) and the sibling `Hands-on VAE` proj
 - Q: How is a crash mid-training recovered? → A: Same convention as `Hands-on VAE`: `latest.pt`
   every epoch, `best_checkpoint.pt` on validation improvement, `final_checkpoint.pt` at the end,
   and `train --resume <checkpoint>` to continue.
+- Q: Where does the official training run for reported results happen? → A: Verify locally; train
+  on a free Colab T4 with the same config and seed, checkpoints on Google Drive, and `--resume`
+  across disconnects; fp32 by default, mixed precision optional.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -205,6 +208,8 @@ reported metrics within the stated tolerance.
   missing file or the configuration mismatch (e.g., schedule or channel widths differ).
 - **Missing VAE metrics**: The benchmark command still reports DDPM results and marks the VAE
   columns as unavailable instead of failing.
+- **Colab session disconnect**: Because checkpoints are written to persistent storage every epoch,
+  a disconnect loses at most one epoch; rerunning `train --resume` on a new session continues the run.
 - **Interrupted sampling for benchmarking**: Long sampling jobs save generated images in batches so
   an interruption does not discard completed work.
 - **Dataset not yet downloaded**: The first data-using command downloads CIFAR-10 automatically, or
@@ -265,6 +270,13 @@ reported metrics within the stated tolerance.
   restores all of this state and continues from the next epoch.
 - **FR-018**: System MUST seed every random source from a single configuration value and record the
   seed, configuration, and software/hardware environment with every run.
+- **FR-018a**: System MUST run the same configuration unchanged on the local GPU and on a Google
+  Colab GPU (T4), with the run output directory (checkpoints, metrics, samples) configurable so it
+  can point to persistent storage such as Google Drive, allowing `train --resume` to continue across
+  Colab session disconnects.
+- **FR-018b**: System MUST train in full precision (fp32) by default and offer mixed precision as an
+  opt-in setting; if mixed precision produces a non-finite loss, training MUST stop with a message
+  recommending fp32, without overwriting the best checkpoint.
 
 **Sampling and visualization**
 
@@ -303,7 +315,8 @@ reported metrics within the stated tolerance.
   noise-prediction loss) and the resulting trade-offs in sharpness, diversity, training stability,
   and generation speed.
 - **FR-031**: The repository README MUST document environment setup and the exact commands needed
-  to reproduce every reported result.
+  to reproduce every reported result, both locally and on Google Colab (including mounting Drive
+  and resuming an interrupted run), and MUST state which GPU produced the reported results.
 
 ### Key Entities
 
@@ -360,10 +373,15 @@ reported metrics within the stated tolerance.
 - **Scope**: This feature covers an unconditional baseline DDPM only. Class-conditional generation,
   classifier/classifier-free guidance, accelerated samplers (e.g., DDIM), learned variances, and
   latent diffusion are out of scope and may be added in later features (e.g., `002-enhanced-ddpm`).
-- **Hardware**: Primary target is the local NVIDIA Quadro T2000 (4 GB physical, 3 GB usable budget
-  per SC-002); cloud/Colab GPUs may be used for long training runs with the same configuration and
-  seed. Mixed-precision (fp16) training is not used by default because the probe showed it was
-  slower and produced non-finite losses on this GPU.
+- **Hardware**: Development and verification run on the local NVIDIA Quadro T2000 (4 GB physical,
+  3 GB usable budget per SC-002). The official training run for reported results runs on a free
+  Google Colab T4 (15 GB) with the same configuration and seed (estimated ~3.5–4 h in fp32 versus
+  ~8.5 h measured locally; the Colab estimate is unmeasured). The 3 GB budget remains the default so
+  every workflow still runs locally. Mixed precision is opt-in only, because the local probe showed
+  it was slower and produced non-finite losses on the T2000; its benefit on the T4 is unverified.
+- **Cross-hardware reproducibility**: Bitwise determinism (SC-006) is guaranteed only on the same
+  hardware and software; results reproduced on a different GPU are expected to match within the
+  SC-008 tolerances.
 - **Training budget**: The default baseline trains for 100 epochs with per-step batch 32 and 4-step
   gradient accumulation (effective batch 128); if this cannot reach SC-004 within the hardware budget, the epoch count is
   increased and the change is recorded in the report rather than altering the architecture.

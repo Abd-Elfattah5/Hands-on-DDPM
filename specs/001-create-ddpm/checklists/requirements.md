@@ -44,5 +44,9 @@
 - **Informed defaults instead of clarification markers**: unconditional generation only, 5,000-sample
   FID/IS protocol inherited from `Hands-on VAE`, 100-epoch baseline budget, EMA decay 0.9999,
   σ_t² = β_t reverse variance by default. All of these are recorded in Assumptions.
+- Clarification session 2026-10-02 (4 answers): 3 GB measured memory ceiling, 32 × 4 batch default,
+  VAE checkpoint/resume convention, local verify + Colab T4 training. Re-validated: 16/16 still pass.
+  Colab/Drive are named because they are user-chosen execution environments, not implementation
+  choices.
 - **SC-004 risk**: FID < 50 is a literature-based target (Ho et al. report 3.17 with 50k samples and
   ~800k steps); reaching it under the 4 GB budget may require more epochs, as the Assumptions note.
