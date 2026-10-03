@@ -42,7 +42,8 @@ local training; Google Colab T4 (15 GB) for the official training run
 
 **Performance Goals**:
 - `verify` < 2 min (SC-001).
-- Training ≈ 0.84 s per optimizer step on the T2000: ≈ 8.5 h for 100 epochs locally, ≈ 3.5–4 h
+- Training ≈ 0.84 s per optimizer step on the T2000: ≈ 10 h for 100 epochs locally including
+  validation (measured ~6 min/epoch, corrected from the 8.5 h planning estimate), ≈ 3.5–4 h
   estimated on a T4.
 - 5,000-image benchmark < 3.5 h on the T2000 (SC-007).
 
@@ -250,4 +251,8 @@ Changes made during `/speckit.implement` that refine (not alter) the design abov
 | 2026-10-03 | T019/T026 | Gradient-flow checks run on a copy with zero-initialized parameters perturbed (`perturb_zero_init_`), because zero-init blocks upstream gradients at step 0 | tasks.md US1 notes, `src/models/gaussian_diffusion.py` docstring |
 | 2026-10-03 | T026/T045 | `p_sample` implemented during T026 so `verify` uses the real Algorithm 2 step | tasks.md US1 notes |
 | 2026-10-03 | Setup | `data/cifar-10-batches-py` symlinked to the existing `Hands-on VAE` download (gitignored, local only) to avoid a second 170 MB download | this log |
+| 2026-10-03 | T035/T038/T047 | Generation half of US3 (T045–T047: `p_sample`, `sample`, `generate_sample_grid`, `render_denoise_strip`) implemented together with US2, so the trainer calls `generate_sample_grid` directly instead of the temporary guard described in T038 | tasks.md US2 notes |
+| 2026-10-03 | T042 | Full local training estimate corrected from 8.5 h to ≈ 10 h (validation adds 30–60 s per epoch; measured 336–360 s/epoch) | research/gpu_memory_results.md, spec Assumptions, README, quickstart, deep dive §9 |
+| 2026-10-03 | T060 | `benchmark` always writes sample batches but reuses them only when `--reuse-samples` is given, so a new checkpoint is never scored with stale images | contracts/cli.md §2.6 |
+| 2026-10-03 | T068 | `test_cli.py` verifies the tiny config with `beta_end: 0.3`: with T=50 the default β range leaves ᾱ_T ≈ 0.60 and `verify` correctly fails | tests/unit/test_cli.py comment |
 

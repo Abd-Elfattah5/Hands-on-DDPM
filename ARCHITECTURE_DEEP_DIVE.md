@@ -231,7 +231,7 @@ Measured on the NVIDIA Quadro T2000 (4 GB, budget 3,072 MiB per process), full a
 
 | Workload | Configuration | Total GPU memory | Speed |
 |---|---|---|---|
-| Training (default) | 32 × 4 accumulation, fp32, AdamW + EMA on GPU | 1,625 MiB | 0.84 s per optimizer step (~8.5 h / 100 epochs) |
+| Training (default) | 32 × 4 accumulation, fp32, AdamW + EMA on GPU | 1,625 MiB | 0.84 s per optimizer step; ~6 min per epoch incl. validation (~10 h / 100 epochs, measured smoke run) |
 | Training | 64 × 2 | 2,925 MiB | 0.87 s per step (too close to the budget) |
 | Training | 96 × 1 / 128 × 1 | 3,915 MiB / > 4 GB | Does not fit |
 | Sampling | batch 256 | 2,061 MiB | ~2.8 h for 5,000 images |

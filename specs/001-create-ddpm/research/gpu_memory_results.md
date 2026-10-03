@@ -43,3 +43,37 @@ Findings:
 sample batch 256 = 2,290 MiB, Inception batch 64 = 2,498 MiB; all ≤ 3,072 MiB.
 `measured_total_mib` reports max(driver-reported usage, peak reserved + 300 MiB context estimate);
 on WSL2 the driver reports whole-GPU usage, so these figures are conservative.
+
+## Smoke training (implementation, 2026-10-03, T042)
+
+`ddpm train --epochs 2 --output-dir artifacts/runs/smoke`, then `--epochs 3 --resume latest.pt`
+(real CIFAR-10, baseline config, T2000):
+
+| Epoch | global_step | epoch_seconds (train + raw/EMA validation) | peak_memory_mib | train / val / val-EMA loss |
+|---|---|---|---|---|
+| 1 | 351 | 335.7 | 1,774 | 0.906 / 0.704 / 0.998 |
+| 2 | 702 | 433.0 (GPU shared with the unit-test run) | 1,876 | 0.425 / 0.156 / 0.985 |
+| 3 (resumed) | 1,053 | 360.5 | 1,860 | 0.077 / 0.043 / 0.957 |
+
+- Resume continued at epoch 3 with `global_step` 702 → 1,053 and `metrics.json` holding all 3 records.
+- The EMA validation loss stays near 1.0 this early because EMA 0.9999 averages over ~10,000 steps;
+  it overtakes the raw loss after roughly 30 epochs (~10k optimizer steps). This is expected.
+- **Corrected full-run estimate**: ~336–360 s/epoch (training ≈ 0.84 s/step × 351 steps ≈ 295 s, plus
+  ≈ 30–60 s for raw + EMA validation and data loading) → **≈ 10 h for 100 epochs** on the T2000
+  (the planning estimate of 8.5 h excluded validation).
+
+## Sampling (implementation, 2026-10-03, T051)
+
+- `ddpm sample -n 16 --seed 7` twice → byte-identical PNGs (`cmp` → IDENTICAL; SC-006).
+- 16 images in one batch: 35.8 s (2.24 s/image); 100 images in one batch: 2.18 s/image.
+- Batch-256 throughput was measured by the probe (~500 s per 256 images ≈ 1.95 s/image, ≈ 2.8 h for
+  5,000); the per-image cost falls with larger batches.
+- `ddpm denoise-strip --num-images 4` renders 8 labeled columns `t=1000 … t=0`.
+
+## Evaluation pipeline (implementation, 2026-10-03, T061)
+
+Smoke checkpoint (3 epochs, untrained-quality samples; integrity check only):
+`ddpm evaluate` → test loss 0.957 on 10,000 images; `ddpm benchmark -n 100` → all data-model §5 keys
+written, FID 527.6 / IS 1.23 (meaningless at 3 epochs and 100 samples, the pipeline is what was
+validated); `ddpm sample --nearest` → panel and JSON written (min L2 27.7, no copies). Inception
+extraction ran at batch 64 within budget (test_memory_budget: 2,498 MiB).

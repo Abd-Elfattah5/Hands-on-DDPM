@@ -36,7 +36,7 @@ train (32 × 4), sample (batch 256) and Inception (batch 64) each stay ≤ 3072 
 ddpm verify --config configs/cifar10_baseline.yaml
 ```
 
-**Expected**: 7/7 checks ✓, about 16.06 M parameters, measured GPU memory ≈ 1.6 GB (≤ 3072 MiB),
+**Expected**: 7/7 checks ✓, 16,056,451 parameters (16.06 M), measured GPU memory ≈ 1.9 GB (≤ 3072 MiB),
 completes in < 2 minutes (SC-001), exit code 0. Repeat with a cosine-schedule override config and
 expect the same result.
 
@@ -67,7 +67,7 @@ written. (Smoke-trained images look noisy; only integrity is checked here.)
 ## 6. Validation Scenario 5: Full Local Training (reproducibility path)
 
 ```bash
-ddpm train --config configs/cifar10_baseline.yaml          # ~8.5 h on T2000, resumable
+ddpm train --config configs/cifar10_baseline.yaml          # ~10 h on T2000 (~6 min/epoch measured), resumable
 ```
 
 **Expected**: 100 epochs, `peak_memory_mib` in every `metrics.json` record ≤ 3072 MiB (SC-002); training loss

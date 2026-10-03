@@ -63,7 +63,17 @@ def _loader(n: int, batch_size: int, seed: int, shuffle: bool) -> DataLoader:
                       generator=torch.Generator().manual_seed(seed) if shuffle else None, drop_last=shuffle)
 
 
-@pytest.fixture
-def fake_cifar_loaders() -> tuple[DataLoader, DataLoader, DataLoader]:
+def make_fake_loaders() -> tuple[DataLoader, DataLoader, DataLoader]:
     """In-memory train/val/test loaders (16/8/8 images) so no test downloads CIFAR-10."""
     return _loader(16, 4, 1, True), _loader(8, 4, 2, False), _loader(8, 4, 3, False)
+
+
+@pytest.fixture
+def fake_cifar_loaders() -> tuple[DataLoader, DataLoader, DataLoader]:
+    return make_fake_loaders()
+
+
+@pytest.fixture
+def fake_loader_factory():
+    """Factory returning fresh, identically seeded loaders (for determinism tests)."""
+    return make_fake_loaders

@@ -1,7 +1,7 @@
 # CLI Interface Contract: `ddpm`
 
 **Feature**: `001-create-ddpm`
-**Status**: Planned
+**Status**: Completed (implemented in `src/cli/main.py`; option parity checked by `tests/unit/test_cli.py`)
 
 The command-line interface is the primary entry point for every operational workflow
 (Constitution Principle V). It is built with `typer`, mirrors the option vocabulary of the `vae` CLI,
@@ -54,11 +54,15 @@ ddpm verify --config <yaml> [--skip-memory]
   2. Schedule: β in (0, 1), ᾱ_t strictly decreasing, ᾱ_T < 1e-3 (linear and cosine).
   3. Forward process: x_t at t = T−1 has mean ≈ 0 and std ≈ 1 (tolerance 0.05 over a batch).
   4. U-Net output shape equals the input shape `[B, 3, 32, 32]`.
-  5. L_simple is finite and every trainable parameter receives a finite, non-zero gradient.
+  5. L_simple is finite and every trainable parameter receives a finite, non-zero gradient
+     (checked on a copy with zero-initialized parameters perturbed, since zero-init blocks
+     upstream gradients at step 0).
   6. A short reverse pass (10 steps) returns finite values in [-1, 1] after clamping.
   7. Memory: one full training step at the configured batch reports total GPU memory ≤
      `verify.memory_budget_mib` (default 3072).
-- **Output**: A ✓/✗ line per check, plus parameter count and measured MiB. Exit code `1` if any check fails.
+- **Output**: A ✓/✗ line per check, plus parameter count, measured MiB and elapsed seconds (SC-001
+  target < 120 s, informational). Exit code `1` if any check fails. With `--skip-memory` or on CPU,
+  6 checks run (`Checks passed: 6/6`).
 
 ### 2.2 `train`
 
@@ -184,7 +188,8 @@ ddpm benchmark --checkpoint <ckpt> [--num-samples 5000] [--batch-size 64] [--sam
   - `--sample-batch-size INT`: Reverse chain batch. *[Default: 256]*
   - `-s, --seed INT`, `--weights TEXT`: as above.
   - `--reuse-samples DIR`: Reuse previously generated sample batches (resumes an interrupted
-    benchmark). *[Optional]*
+    benchmark). Without it, batches are still written to `artifacts/eval/samples_<seed>/` but
+    always regenerated, so a new checkpoint is never scored with stale images. *[Optional]*
   - `-o, --out PATH`: *[Default: `artifacts/eval/benchmark_metrics.json`]*
 - **Steps**: (1) test loss; (2) generate N EMA samples in batches, saving them to
   `artifacts/eval/samples_<seed>/`; (3) Inception features of the first N test images and the N

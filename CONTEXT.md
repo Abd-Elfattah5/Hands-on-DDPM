@@ -68,6 +68,10 @@ _Avoid_: Batch size (when the per-step micro-batch is meant)
 Summing gradients over several per-step batches before one optimizer update, trading time for GPU memory.
 _Avoid_: Micro-batching (as a synonym for the whole technique)
 
+**Zero-Initialized Output Layer**:
+The last convolution of every residual block, attention block and the network head starts at zero, so an untrained network behaves as an identity mapping; gradient-flow checks therefore run on a perturbed copy.
+_Avoid_: Dead layer, broken gradient
+
 **Checkpoint Convention**:
 `latest.pt` every epoch, `best_checkpoint.pt` on EMA validation-loss improvement, `final_checkpoint.pt` at the end; any of them can be passed to `train --resume`.
 _Avoid_: Snapshot, save state
@@ -111,6 +115,10 @@ _Avoid_: Standard FID, official FID
 **Nearest-Neighbor Panel**:
 A memorization check (`sample --nearest`) showing each generated image next to its closest CIFAR-10 training images by pixel L2 distance.
 _Avoid_: Retrieval, similarity search
+
+**Class Coverage**:
+Distribution-coverage summary stored by `ddpm benchmark`: number of distinct Inception top-1 classes, entropy of the marginal class distribution and the most frequent classes among the generated images.
+_Avoid_: Accuracy, class balance (of the dataset)
 
 **Memorization**:
 A failure mode where generated images are near-copies of training images rather than novel samples.

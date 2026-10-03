@@ -405,8 +405,9 @@ reported metrics within the stated tolerance.
   latent diffusion are out of scope and may be added in later features (e.g., `002-enhanced-ddpm`).
 - **Hardware**: Development and verification run on the local NVIDIA Quadro T2000 (4 GB physical,
   3 GB usable budget per SC-002). The official training run for reported results runs on a free
-  Google Colab T4 (15 GB) with the same model, diffusion and optimization settings and seed (estimated ~3.5–4 h in fp32 versus
-  ~8.5 h measured locally; the Colab estimate is unmeasured). The 3 GB budget remains the default so
+  Google Colab T4 (15 GB) with the same model, diffusion and optimization settings and seed
+  (estimated ~4–5 h in fp32 versus ~10 h measured locally including validation, ~6 min/epoch;
+  the Colab estimate is unmeasured). The 3 GB budget remains the default so
   every workflow still runs locally. Mixed precision is opt-in only, because the local probe showed
   it was slower and produced non-finite losses on the T2000; its benefit on the T4 is unverified.
 - **Cross-hardware reproducibility**: Bitwise determinism (SC-006) is guaranteed only on the same

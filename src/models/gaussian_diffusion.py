@@ -108,6 +108,7 @@ class GaussianDiffusion(BaseDiffusion):
         z = torch.randn(x_t.shape, device=x_t.device, dtype=x_t.dtype, generator=generator)
         return mean + var.sqrt() * z
 
+    @torch.no_grad()
     def sample(
         self,
         num_samples: int,
@@ -117,4 +118,44 @@ class GaussianDiffusion(BaseDiffusion):
         batch_size: int | None = None,
         on_batch: Callable[[int, Tensor], None] | None = None,
     ) -> SamplingOutput:
-        raise NotImplementedError("Reverse sampling is implemented in T046")
+        """Ancestral sampling (Algorithm 2) in chunks of ``batch_size``.
+
+        Trajectory label rule: label ``T`` is the initial ``x_T`` before any reverse step; label
+        ``k < T`` is the state after the reverse step at zero-based index ``k`` (label 0 is the final,
+        clamped output). ``on_batch(index, samples)`` is called after each finished chunk so callers
+        can write results to disk as they complete.
+        """
+        device = torch.device(device)
+        cfg_model = self.config.get("model", {}) if self.config else {}
+        c = cfg_model.get("in_channels", 3)
+        s = cfg_model.get("image_size", 32)
+        batch_size = batch_size or num_samples
+        steps = list(trajectory_steps) if trajectory_steps else []
+        wanted = set(steps)
+        T = self.timesteps
+
+        start = time.time()
+        chunks, traj_chunks = [], []
+        for index, offset in enumerate(range(0, num_samples, batch_size)):
+            n = min(batch_size, num_samples - offset)
+            x = torch.randn((n, c, s, s), device=device, generator=generator)
+            frames: dict[int, Tensor] = {}
+            if T in wanted:
+                frames[T] = x.clone()
+            for t in range(T - 1, -1, -1):
+                x = self.p_sample(x, t, generator=generator)
+                if t == 0:
+                    x = x.clamp(-1.0, 1.0)
+                if t in wanted:
+                    frames[t] = x.clone()
+            chunks.append(x)
+            if steps:
+                traj_chunks.append(torch.stack([frames[k] for k in steps]))
+            if on_batch is not None:
+                on_batch(index, x)
+        if device.type == "cuda":
+            torch.cuda.synchronize(device)
+        samples = torch.cat(chunks)
+        trajectory = torch.cat(traj_chunks, dim=1) if steps else None
+        return SamplingOutput(samples=samples, trajectory=trajectory, trajectory_steps=steps,
+                              seconds=time.time() - start)

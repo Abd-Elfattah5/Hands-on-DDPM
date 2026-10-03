@@ -111,7 +111,7 @@ The `ddpm` command-line interface provides the complete workflow. Run `ddpm --he
 ```bash
 ddpm train --config configs/cifar10_baseline.yaml
 ```
-*Trains for 100 epochs at an effective batch of 128 (32 × 4 gradient accumulation), about 8.5 h on a Quadro T2000. Emits `latest.pt` (every epoch), `best_checkpoint.pt`, `final_checkpoint.pt`, `metrics.json`, `loss_curve.png`, `train.log` and `samples/epoch_NNN.png` to `artifacts/runs/cifar10_baseline/`.*
+*Trains for 100 epochs at an effective batch of 128 (32 × 4 gradient accumulation), about 10 h on a Quadro T2000 (~6 min per epoch, measured). Emits `latest.pt` (every epoch), `best_checkpoint.pt`, `final_checkpoint.pt`, `metrics.json`, `loss_curve.png`, `train.log` and `samples/epoch_NNN.png` to `artifacts/runs/cifar10_baseline/`.*
 
 Resume after an interruption:
 
