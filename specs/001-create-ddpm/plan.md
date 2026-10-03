@@ -240,3 +240,14 @@ approval, every recommended option was applied; no change was made without being
 | D1 | JSON-only vs constitution "JSON/CSV" | Kept JSON only; justified in ADR 0001 D4 (constitution unchanged) | ADR 0001 |
 | T1 | `mixed_precision: false` (config) vs `none` (CLI) | Config now uses `none` everywhere: `none` / `bf16` / `fp16` | `data-model.md` §3, `tasks.md` T005/T006/T035/T039, `research.md` §7 |
 
+## Implementation Change Log
+
+Changes made during `/speckit.implement` that refine (not alter) the design above.
+
+| Date | Task | Change | Where documented |
+|---|---|---|---|
+| 2026-10-03 | T005 | Added config key `diffusion.name: gaussian` so the registry selects the diffusion process like `model.name` | data-model.md §3 |
+| 2026-10-03 | T019/T026 | Gradient-flow checks run on a copy with zero-initialized parameters perturbed (`perturb_zero_init_`), because zero-init blocks upstream gradients at step 0 | tasks.md US1 notes, `src/models/gaussian_diffusion.py` docstring |
+| 2026-10-03 | T026/T045 | `p_sample` implemented during T026 so `verify` uses the real Algorithm 2 step | tasks.md US1 notes |
+| 2026-10-03 | Setup | `data/cifar-10-batches-py` symlinked to the existing `Hands-on VAE` download (gitignored, local only) to avoid a second 170 MB download | this log |
+

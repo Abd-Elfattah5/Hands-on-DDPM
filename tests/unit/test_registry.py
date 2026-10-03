@@ -21,13 +21,11 @@ def test_builtin_schedules_resolve():
     assert issubclass(registry.get_schedule("cosine"), BaseNoiseSchedule)
 
 
-@pytest.mark.xfail(strict=False, reason="UNet/GaussianDiffusion land in T024/T025; marker removed in T029")
 def test_builtin_denoiser_and_diffusion_resolve():
     assert registry.get_denoiser("unet").__name__ == "UNet"
     assert registry.get_diffusion("gaussian").__name__ == "GaussianDiffusion"
 
 
-@pytest.mark.xfail(strict=False, reason="UNet/GaussianDiffusion land in T024/T025; marker removed in T029")
 def test_build_diffusion_from_config(tiny_config):
     model = registry.build_diffusion_from_config(tiny_config)
     assert model.timesteps == 50

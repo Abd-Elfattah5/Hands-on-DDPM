@@ -29,3 +29,17 @@ Findings:
 - fp16 mixed precision on this GPU was slower and produced non-finite losses, so it is not usable as-is.
 - Effective batch 128 without gradient accumulation does not fit.
 - Estimated training time at batch 64 x 2: 352 steps/epoch x 0.87 s = ~5.1 min/epoch, so ~8.5 h for 100 epochs.
+
+## Verify gate (implementation, 2026-10-03, T028)
+
+`ddpm verify` on the implemented model (16,056,451 parameters, identical to the probe):
+
+| Config | Checks | Measured total GPU memory (32 × 4 training step) | Elapsed |
+|---|---|---|---|
+| `configs/cifar10_baseline.yaml` (linear, ᾱ_T = 4.04e-05) | 7/7 | 1,918 MiB ≤ 3,072 | 5.0 s (SC-001 < 120 s) |
+| baseline with `diffusion.schedule: cosine` (ᾱ_T = 2.43e-09) | 7/7 | 1,918 MiB ≤ 3,072 | 5.0 s |
+
+`tests/unit/test_memory_budget.py` (fresh subprocess per scenario): train 32 × 4 = 1,772 MiB,
+sample batch 256 = 2,290 MiB, Inception batch 64 = 2,498 MiB; all ≤ 3,072 MiB.
+`measured_total_mib` reports max(driver-reported usage, peak reserved + 300 MiB context estimate);
+on WSL2 the driver reports whole-GPU usage, so these figures are conservative.
