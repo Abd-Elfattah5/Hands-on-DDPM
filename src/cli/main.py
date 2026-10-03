@@ -206,6 +206,7 @@ def train(
     grad_accum: Optional[int] = typer.Option(None, "--grad-accum", help="Override gradient-accumulation steps."),
     output_dir: Optional[Path] = typer.Option(None, "--output-dir", help="Override experiment.output_dir (e.g. a Google Drive folder)."),
     mixed_precision: Optional[str] = typer.Option(None, "--mixed-precision", help="Override training.mixed_precision: none, bf16 or fp16."),
+    overwrite: bool = typer.Option(False, "--overwrite", help="Start a fresh run even if output_dir already holds checkpoints (replaces them)."),
 ) -> None:
     """Train the DDPM; writes checkpoints, metrics.json, loss_curve.png and sample grids."""
     from src.configs.schema import apply_overrides
@@ -233,7 +234,7 @@ def train(
                         fg=typer.colors.YELLOW)
             raise typer.Exit(code=0)
     try:
-        result = trainer.train(start_epoch=start_epoch)
+        result = trainer.train(start_epoch=start_epoch, overwrite=overwrite)
     except torch.cuda.OutOfMemoryError as exc:
         typer.secho("CUDA out of memory. Retry with a smaller per-step batch and more accumulation, "
                     "e.g. --batch-size 16 --grad-accum 8 (same effective batch).", fg=typer.colors.RED, err=True)
@@ -446,9 +447,12 @@ def benchmark(
     # Samples are always written to disk; they are only *reused* when --reuse-samples is given, so a
     # different checkpoint can never be scored with stale images.
     sample_dir = reuse_samples or out.parent / f"samples_{seed}"
+    manifest = {"checkpoint": str(checkpoint.resolve()), "epoch": ckpt.get("epoch"),
+                "global_step": ckpt.get("global_step"), "weights": weights, "seed": seed,
+                "sample_batch_size": sample_batch_size}
     gen = compute_fid_and_is(model, test_loader, num_samples=num_samples, batch_size=batch_size, device=device,
                              sample_batch_size=sample_batch_size, seed=seed, sample_dir=sample_dir,
-                             reuse_samples=reuse_samples is not None, is_splits=is_splits)
+                             reuse_samples=reuse_samples is not None, is_splits=is_splits, manifest=manifest)
 
     metrics_file = checkpoint.parent / "metrics.json"
     training_seconds = None
@@ -463,12 +467,16 @@ def benchmark(
         "training_seconds": training_seconds, "device_name": _device_name(device),
     }
     _write_json(out, payload)
-    hours = gen["sampling_seconds_total"] / 3600
+    hours = (gen["sampling_seconds_total"] or 0.0) / 3600
     typer.secho(f"Benchmark ({weights.upper()}, {gen['benchmark_samples']} samples, seed {seed})", bold=True)
     typer.echo(f"├── Test noise-prediction loss: {eval_metrics['test_loss']:.4f}")
     typer.echo(f"├── Fréchet Inception Distance: {gen['fid']:.2f}")
     typer.echo(f"├── Inception Score: {gen['inception_score_mean']:.2f} ± {gen['inception_score_std']:.2f}")
-    typer.echo(f"├── Sampling time: {hours:.2f} h ({gen['sampling_seconds_per_image']:.2f} s/image)")
+    if gen["generated_samples"]:
+        typer.echo(f"├── Sampling time: {hours:.2f} h ({gen['sampling_seconds_per_image']:.2f} s/image, "
+                   f"{gen['generated_samples']} generated, {gen['reused_batches']} batches reused)")
+    else:
+        typer.echo(f"├── Sampling time: n/a (all {gen['reused_batches']} batches reused from disk)")
     typer.echo(f"├── Class coverage: {gen['class_coverage']['distinct_top1_classes']} distinct Inception classes")
     typer.echo(f"└── Metrics written to {out}")
 

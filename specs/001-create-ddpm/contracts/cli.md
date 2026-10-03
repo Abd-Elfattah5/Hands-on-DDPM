@@ -81,6 +81,9 @@ ddpm train --config <yaml> [--resume <ckpt>] [--seed N] [--epochs N] [--batch-si
   - `--grad-accum INT`: Overrides `training.grad_accum_steps`. *[Optional]*
   - `--output-dir PATH`: Overrides `experiment.output_dir` (e.g., a Google Drive folder on Colab). *[Optional]*
   - `--mixed-precision TEXT`: Overrides `training.mixed_precision`. *[Default: from config, `none`]*
+  - `--overwrite`: Start a fresh run even if `output_dir` already holds `latest.pt`, `best_checkpoint.pt`,
+    `best.pt` or `final_checkpoint.pt`. Without it (and without `--resume`) such a run exits with code `1`
+    instead of replacing the existing checkpoints. *[Optional]*
 - **Artifacts Emitted** (`<output_dir>/`):
   - `latest.pt` (every epoch), `best_checkpoint.pt` and `best.pt` (EMA validation loss improved),
     `epoch_NNN.pt` (every `save_every`), `final_checkpoint.pt`.
@@ -188,8 +191,12 @@ ddpm benchmark --checkpoint <ckpt> [--num-samples 5000] [--batch-size 64] [--sam
   - `--sample-batch-size INT`: Reverse chain batch. *[Default: 256]*
   - `-s, --seed INT`, `--weights TEXT`: as above.
   - `--reuse-samples DIR`: Reuse previously generated sample batches (resumes an interrupted
-    benchmark). Without it, batches are still written to `artifacts/eval/samples_<seed>/` but
-    always regenerated, so a new checkpoint is never scored with stale images. *[Optional]*
+    benchmark). The directory holds a `manifest.json` (checkpoint path, epoch, global step,
+    weights, seed, sample batch size); reuse is refused with exit code `1` when it does not match.
+    Without the flag, batches are written to `artifacts/eval/samples_<seed>/` and old batches there
+    are deleted first, so a new checkpoint is never scored with stale images. Each batch draws its
+    noise from a generator seeded by (seed, batch index), so resumed and uninterrupted runs produce
+    identical images. *[Optional]*
   - `-o, --out PATH`: *[Default: `artifacts/eval/benchmark_metrics.json`]*
 - **Steps**: (1) test loss; (2) generate N EMA samples in batches, saving them to
   `artifacts/eval/samples_<seed>/`; (3) Inception features of the first N test images and the N

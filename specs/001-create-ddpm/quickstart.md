@@ -79,7 +79,7 @@ drops ≥ 50% between epoch 1 and epoch 100 (SC-003).
 2. Add a `GH_TOKEN` Colab Secret (read access to the private repository), or upload a repository zip
    to Drive.
 3. Run all cells. The notebook mounts Drive, installs the package, runs `ddpm verify`, then
-   `ddpm train --config configs/cifar10_colab.yaml --output-dir /content/drive/MyDrive/hands-on-ddpm/runs/cifar10_baseline`.
+   `ddpm train --config configs/cifar10_colab.yaml --output-dir /content/drive/MyDrive/hands-on-ddpm/runs/cifar10_colab`.
 4. Simulate a disconnect (Runtime → Disconnect), reconnect and run all cells again.
 
 **Expected**: Training resumes from `latest.pt` on Drive and loses ≤ 1 epoch; `metrics.json` keeps

@@ -113,7 +113,7 @@ ddpm train --config configs/cifar10_baseline.yaml
 ```
 *Trains for 100 epochs at an effective batch of 128 (32 × 4 gradient accumulation), about 10 h on a Quadro T2000 (~6 min per epoch, measured). Emits `latest.pt` (every epoch), `best_checkpoint.pt`, `final_checkpoint.pt`, `metrics.json`, `loss_curve.png`, `train.log` and `samples/epoch_NNN.png` to `artifacts/runs/cifar10_baseline/`.*
 
-Resume after an interruption:
+A fresh run refuses to start in a directory that already holds checkpoints (so a finished run is never overwritten by accident); pass `--overwrite` to start over deliberately. Resume after an interruption:
 
 ```bash
 ddpm train --config configs/cifar10_baseline.yaml --resume artifacts/runs/cifar10_baseline/latest.pt
@@ -175,7 +175,7 @@ The official training run uses a Colab GPU (e.g., T4), which has more compute an
 3. **Run all**. The notebook mounts Google Drive, installs the package, runs `ddpm verify`, then trains with:
    ```bash
    ddpm train --config configs/cifar10_colab.yaml \
-              --output-dir /content/drive/MyDrive/hands-on-ddpm/runs/cifar10_baseline
+              --output-dir /content/drive/MyDrive/hands-on-ddpm/runs/cifar10_colab
    ```
 4. If the session disconnects, reconnect and **Run all** again: the notebook detects `latest.pt` on Drive and adds `--resume` automatically (at most one epoch is lost).
 

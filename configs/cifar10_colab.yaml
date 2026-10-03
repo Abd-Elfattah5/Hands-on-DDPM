@@ -1,12 +1,12 @@
 # Colab configuration (e.g. T4, 15 GB). Identical model, diffusion and optimization settings to
 # cifar10_baseline.yaml, including the effective batch of 128; only the per-step batch, accumulation
-# steps and data workers differ (spec FR-018a, ADR 0001 D2).
+# steps, data workers and the default output_dir differ (spec FR-018a, ADR 0001 D2).
 # Effective batch = data.batch_size × training.grad_accum_steps = 128 × 1 = 128.
 experiment:
   name: "cifar10_colab"
   seed: 42
   device: "auto"
-  output_dir: "artifacts/runs/cifar10_baseline"
+  output_dir: "artifacts/runs/cifar10_colab"
 
 data:
   dataset: "cifar10"

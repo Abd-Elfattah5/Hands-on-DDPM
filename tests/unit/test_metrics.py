@@ -116,5 +116,61 @@ def test_compute_fid_and_is_with_stub(tiny_config, tmp_path, monkeypatch):
     monkeypatch.setattr(model, "sample", lambda *a, **k: calls.append(1))
     again = M.compute_fid_and_is(model, real, num_samples=20, batch_size=8, device=torch.device("cpu"),
                                  sample_batch_size=8, seed=1, sample_dir=sample_dir, reuse_samples=True, is_splits=2)
+    assert (sample_dir / "manifest.json").exists()
     assert calls == []
     assert again["benchmark_samples"] == 20
+
+
+def _bench(model, real, sample_dir, reuse, manifest, monkeypatch):
+    return M.compute_fid_and_is(model, real, num_samples=20, batch_size=8, device=torch.device("cpu"),
+                                sample_batch_size=8, seed=1, sample_dir=sample_dir, reuse_samples=reuse,
+                                is_splits=2, manifest=manifest)
+
+
+def _tiny_model(tiny_config):
+    tiny_config["diffusion"]["timesteps"] = 5
+    tiny_config["sampling"]["strip_steps"] = [5, 0]
+    torch.manual_seed(0)
+    m = build_diffusion_from_config(tiny_config).eval()
+    for p in m.parameters():
+        torch.nn.init.normal_(p, std=0.02)
+    return m
+
+
+def test_resume_after_partial_reuse_is_identical(tiny_config, tmp_path, monkeypatch):
+    """Review finding 1: reusing some batches must not shift the noise of the remaining ones."""
+    monkeypatch.setattr(M, "InceptionFeatureExtractor", _StubExtractor)
+    model = _tiny_model(tiny_config)
+    real = DataLoader(TensorDataset(torch.rand(20, 3, 32, 32) * 2 - 1, torch.zeros(20)), batch_size=8)
+    man = {"checkpoint": "a.pt", "epoch": 1}
+    d = tmp_path / "s"
+    _bench(model, real, d, False, man, monkeypatch)
+    full = [torch.load(d / f"batch_{i:04d}.pt") for i in range(3)]
+    assert not torch.equal(full[0], full[1])
+    (d / "batch_0001.pt").unlink()
+    out = _bench(model, real, d, True, man, monkeypatch)
+    assert torch.equal(torch.load(d / "batch_0001.pt"), full[1])
+    assert out["reused_batches"] == 2 and out["generated_samples"] == 8
+    assert out["sampling_seconds_per_image"] is not None
+
+
+def test_all_reused_reports_null_timing(tiny_config, tmp_path, monkeypatch):
+    """Review finding 6: timing must not be divided over reused images."""
+    monkeypatch.setattr(M, "InceptionFeatureExtractor", _StubExtractor)
+    model = _tiny_model(tiny_config)
+    real = DataLoader(TensorDataset(torch.rand(20, 3, 32, 32) * 2 - 1, torch.zeros(20)), batch_size=8)
+    man = {"checkpoint": "a.pt", "epoch": 1}
+    _bench(model, real, tmp_path / "s", False, man, monkeypatch)
+    out = _bench(model, real, tmp_path / "s", True, man, monkeypatch)
+    assert out["generated_samples"] == 0 and out["reused_batches"] == 3
+    assert out["sampling_seconds_total"] is None and out["sampling_seconds_per_image"] is None
+
+
+def test_stale_samples_rejected(tiny_config, tmp_path, monkeypatch):
+    """Review finding 2: batches from another checkpoint must never be reused."""
+    monkeypatch.setattr(M, "InceptionFeatureExtractor", _StubExtractor)
+    model = _tiny_model(tiny_config)
+    real = DataLoader(TensorDataset(torch.rand(20, 3, 32, 32) * 2 - 1, torch.zeros(20)), batch_size=8)
+    _bench(model, real, tmp_path / "s", False, {"checkpoint": "a.pt", "epoch": 1}, monkeypatch)
+    with pytest.raises(M.StaleSamplesError):
+        _bench(model, real, tmp_path / "s", True, {"checkpoint": "a.pt", "epoch": 9}, monkeypatch)

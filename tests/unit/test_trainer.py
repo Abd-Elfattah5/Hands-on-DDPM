@@ -124,3 +124,17 @@ def test_seeded_runs_are_identical(tiny_config, fake_loader_factory, tmp_path):
         rec = json.loads((tmp_path / name / "metrics.json").read_text())[0]
         losses.append((rec["train_loss"], rec["val_loss"], rec["val_loss_ema"]))
     assert losses[0] == losses[1]
+
+
+def test_fresh_run_refuses_existing_checkpoints(tiny_config, fake_cifar_loaders):
+    """Review finding 3: a run without --resume must not overwrite an existing run's checkpoints."""
+    from src.training.trainer import RunDirectoryNotEmptyError
+
+    tiny_config["training"]["epochs"] = 1
+    _trainer(tiny_config, fake_cifar_loaders).train()
+    best = Path(tiny_config["experiment"]["output_dir"]) / "best_checkpoint.pt"
+    before = best.read_bytes()
+    with pytest.raises(RunDirectoryNotEmptyError, match="--resume"):
+        _trainer(tiny_config, fake_cifar_loaders).train()
+    assert best.read_bytes() == before
+    _trainer(tiny_config, fake_cifar_loaders).train(overwrite=True)

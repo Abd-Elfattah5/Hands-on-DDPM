@@ -293,7 +293,8 @@ reported metrics within the stated tolerance.
 - **FR-018a**: System MUST run with the same model, diffusion and optimization settings (including
   the effective batch of 128) on the local GPU and on a Google Colab GPU (T4); only the per-step
   batch, gradient-accumulation steps and data-loader workers may differ between the two configs
-  (ADR 0001 D2). The run output directory (checkpoints, metrics, samples) MUST be configurable so it
+  (ADR 0001 D2), plus the default output directory so the two runs cannot overwrite each other.
+  The run output directory (checkpoints, metrics, samples) MUST be configurable so it
   can point to persistent storage such as Google Drive, allowing `train --resume` to continue across
   Colab session disconnects.
 - **FR-018b**: System MUST train in full precision (fp32) by default and offer mixed precision as an

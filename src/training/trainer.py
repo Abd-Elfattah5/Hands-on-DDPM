@@ -33,6 +33,13 @@ class NonFiniteLossError(RuntimeError):
         self.epoch, self.step = epoch, step
 
 
+class RunDirectoryNotEmptyError(ConfigError):
+    """Raised when a fresh run would overwrite checkpoints of an existing run in the same directory."""
+
+
+PROTECTED_FILES = ("latest.pt", "best_checkpoint.pt", "best.pt", "final_checkpoint.pt")
+
+
 class DDPMTrainer:
     """Trains a ``GaussianDiffusion`` model and writes all artifacts to ``experiment.output_dir``."""
 
@@ -76,6 +83,7 @@ class DDPMTrainer:
         self.history: list[dict[str, Any]] = []
         self.best_val_loss = math.inf
         self.global_step = 0
+        self._resumed = False
 
     # ------------------------------------------------------------------------------------------ steps
 
@@ -173,6 +181,7 @@ class DDPMTrainer:
         self.best_val_loss = float(ckpt.get("best_val_loss", math.inf))
         self.history = list(ckpt.get("history", []))
         restore_rng_state(ckpt.get("rng_state"))
+        self._resumed = True
         self.logger.info(f"Resumed from {path} at epoch {ckpt['epoch']} (global step {self.global_step})")
         return int(ckpt["epoch"]) + 1
 
@@ -194,8 +203,21 @@ class DDPMTrainer:
         finally:
             self.model.denoiser = original
 
-    def train(self, start_epoch: int = 1) -> dict[str, Any]:
-        """Run epochs ``start_epoch..training.epochs``, writing checkpoints, metrics and plots."""
+    def train(self, start_epoch: int = 1, overwrite: bool = False) -> dict[str, Any]:
+        """Run epochs ``start_epoch..training.epochs``, writing checkpoints, metrics and plots.
+
+        A fresh (non-resumed) run refuses to start in a directory that already holds checkpoints,
+        because its first epoch would replace ``best_checkpoint.pt`` and ``metrics.json``. Pass
+        ``overwrite=True`` (CLI ``--overwrite``) to start over deliberately.
+        """
+        if not self._resumed and not overwrite:
+            existing = [f for f in PROTECTED_FILES if (self.output_dir / f).exists()]
+            if existing:
+                raise RunDirectoryNotEmptyError(
+                    f"{self.output_dir} already contains {existing}. Continue it with "
+                    f"--resume {self.output_dir / 'latest.pt'}, choose another --output-dir, "
+                    "or pass --overwrite to replace it."
+                )
         tr = self.config["training"]
         epochs = int(tr["epochs"])
         self.logger.info(

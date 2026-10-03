@@ -148,7 +148,8 @@ Tags and files: `latest.pt` (every epoch), `best_checkpoint.pt` and `best.pt` (o
 | `fid` | float (2 dp) | `benchmark` |
 | `inception_score_mean` / `inception_score_std` | float | `benchmark` |
 | `benchmark_samples` | int (5000) | `benchmark` |
-| `sampling_seconds_total` / `sampling_seconds_per_image` | float | `benchmark`, `sample` |
+| `sampling_seconds_total` / `sampling_seconds_per_image` | float, or `null` in `benchmark` when every batch was reused | `benchmark` (images generated in this run only), `sample` |
+| `generated_samples` / `reused_batches` | int | `benchmark` |
 | `class_coverage` | object: `distinct_top1_classes` (int), `marginal_entropy_nats` (float), `top20` (list of `[imagenet_index, count]`) | `benchmark` (distribution coverage for the report, FR-029) |
 | `num_parameters` | int | `benchmark` |
 | `training_seconds` | float (from the run's `metrics.json`, if present) | `benchmark` |

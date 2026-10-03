@@ -256,3 +256,19 @@ Changes made during `/speckit.implement` that refine (not alter) the design abov
 | 2026-10-03 | T060 | `benchmark` always writes sample batches but reuses them only when `--reuse-samples` is given, so a new checkpoint is never scored with stale images | contracts/cli.md §2.6 |
 | 2026-10-03 | T068 | `test_cli.py` verifies the tiny config with `beta_end: 0.3`: with T=50 the default β range leaves ᾱ_T ≈ 0.60 and `verify` correctly fails | tests/unit/test_cli.py comment |
 
+## Code Review Remediation Log (2026-10-03)
+
+`/review branch` (security, performance, business logic, duplication/dead code/deploy safety tracks)
+reported 5 warnings and 1 suggestion; all were fixed with the user's approval and covered by tests.
+
+| # | Finding | Fix | Files | Test |
+|---|---|---|---|---|
+| R1 | Resumed benchmark duplicated images: a single generator did not advance over reused batches | Each batch uses its own generator seeded from (seed, batch index) (`batch_generator`) | `src/evaluation/metrics.py` | `test_resume_after_partial_reuse_is_identical` |
+| R2 | Notebook always reused Drive samples, so a new checkpoint could be scored with old images | `manifest.json` (checkpoint path, epoch, global step, weights, seed, sample batch size) stored with the batches; reuse refused on mismatch (`StaleSamplesError`, exit 1); without `--reuse-samples` old batches are deleted; notebook names sample folders by epoch | `src/evaluation/metrics.py`, `src/cli/main.py`, notebook cell 7 | `test_stale_samples_rejected` |
+| R3 | `train` without `--resume` overwrote an existing run's `best_checkpoint.pt` | Fresh runs refuse a directory holding `latest.pt`/`best_checkpoint.pt`/`best.pt`/`final_checkpoint.pt` (`RunDirectoryNotEmptyError`, exit 1); new `--overwrite` flag to start over deliberately | `src/training/trainer.py`, `src/cli/main.py` | `test_fresh_run_refuses_existing_checkpoints` |
+| R4 | Colab and local configs shared `output_dir` | `cifar10_colab.yaml` → `artifacts/runs/cifar10_colab`; notebook `RUN_DIR` → `.../runs/cifar10_colab` | `configs/cifar10_colab.yaml`, notebook cell 2, ADR 0001 D2 | config validation |
+| R5 | GitHub token persisted in the clone's `.git/config` | `git remote set-url origin` to the token-free URL right after cloning; token variable cleared | notebook cell 3 | notebook cells parse (manual check) |
+| R6 | Sampling time per image divided generated time by all images | Timing divided by images generated in this run; `null` when all batches reused; new keys `generated_samples`, `reused_batches` | `src/evaluation/metrics.py`, `src/cli/main.py`, data-model.md §5 | `test_all_reused_reports_null_timing` |
+
+Hardening applied with R1: reused batches are loaded with `torch.load(..., weights_only=True)`.
+

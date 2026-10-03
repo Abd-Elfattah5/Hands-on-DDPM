@@ -17,7 +17,7 @@
 | Design rationale / glossary | `ARCHITECTURE_DEEP_DIVE.md`, `CONTEXT.md` |
 | Plan changes during analysis and implementation | `specs/001-create-ddpm/plan.md` → "Analysis Remediation Log", "Implementation Change Log" |
 | Code | `src/` (cli, configs, data, models, training, evaluation, utils) |
-| Tests | `tests/unit/` (86 tests; `test_memory_budget.py` needs CUDA) |
+| Tests | `tests/unit/` (90 tests; `test_memory_budget.py` needs CUDA) |
 | Colab driver | `notebooks/ddpm_colab_training.ipynb` |
 | Configs | `configs/cifar10_baseline.yaml` (local, 32 × 4), `configs/cifar10_colab.yaml` (Colab, 128 × 1) |
 
@@ -42,7 +42,7 @@
 
 ## 4. Remaining Work (tasks.md Phase 7–8)
 
-1. **T062** Run `notebooks/ddpm_colab_training.ipynb` on a Colab T4 (or locally: `ddpm train --config configs/cifar10_baseline.yaml`, ≈ 10 h, resumable). Copy `best_checkpoint.pt`, `metrics.json`, `loss_curve.png`, `samples/` into `artifacts/runs/cifar10_baseline/`.
+1. **T062** Run `notebooks/ddpm_colab_training.ipynb` on a Colab T4 (or locally: `ddpm train --config configs/cifar10_baseline.yaml`, ≈ 10 h, resumable). Copy `best_checkpoint.pt`, `metrics.json`, `loss_curve.png`, `samples/` from Drive `runs/cifar10_colab/` into `artifacts/runs/cifar10_colab/` (or use `artifacts/runs/cifar10_baseline/` for a local run).
 2. **T063** `ddpm evaluate`, `ddpm benchmark --num-samples 5000`, `ddpm sample -n 64 --seed 42 --upscale 4 --out artifacts/samples/sample_grid_1024.png --nearest`, `ddpm denoise-strip --num-images 8 --seed 42`; check SC-003/004/005/007/010 and record them in `research/gpu_memory_results.md` ("Final results").
 3. **T064** Publish `best_checkpoint.pt` as a GitHub Release, add results and the download command to `README.md`.
 4. **T065** Write `docs/reports/001-baseline-ddpm-report.md`, including computational complexity, distribution coverage and the manual DDPM vs. VAE table (VAE: FID 169.02 / 181.00, IS 2.11 / 1.68).
