@@ -44,6 +44,23 @@ against assignment `GenCV003` (Part 2: DDPM) and the sibling `Hands-on VAE` proj
   comparison code in this repository. No MNIST configuration. The nearest-neighbor panel is the
   `--nearest` flag of `sample`.
 
+### Session 2026-10-03 (post-analysis remediation)
+
+Changes from `/speckit.analyze` findings, applied with the user's approval; logged in
+`plan.md` → "Analysis Remediation Log".
+
+- Q: How are deviations from `Hands-on VAE` conventions justified? → A: In
+  `docs/adr/0001-deviations-from-hands-on-vae-conventions.md`, as the constitution requires (K1).
+- Q: Must the report cover computational complexity and distribution coverage? → A: Yes, both are
+  now part of FR-029 (K2).
+- Q: Does "same configuration" on local and Colab mean an identical file? → A: No: identical model,
+  diffusion and optimization settings and effective batch; per-step batch, accumulation and workers
+  may differ (FR-018a, C2).
+- Q: How is the reported checkpoint published? → A: As a GitHub Release asset linked from the
+  README (SC-008, U1).
+- Q: How many generated images does the nearest-neighbor check inspect? → A: 64 (`--nearest-rows`
+  default 64), matching SC-010 (I1).
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Verify the Diffusion Model Before Training (Priority: P1)
@@ -273,8 +290,10 @@ reported metrics within the stated tolerance.
   restores all of this state and continues from the next epoch.
 - **FR-018**: System MUST seed every random source from a single configuration value and record the
   seed, configuration, and software/hardware environment with every run.
-- **FR-018a**: System MUST run the same configuration unchanged on the local GPU and on a Google
-  Colab GPU (T4), with the run output directory (checkpoints, metrics, samples) configurable so it
+- **FR-018a**: System MUST run with the same model, diffusion and optimization settings (including
+  the effective batch of 128) on the local GPU and on a Google Colab GPU (T4); only the per-step
+  batch, gradient-accumulation steps and data-loader workers may differ between the two configs
+  (ADR 0001 D2). The run output directory (checkpoints, metrics, samples) MUST be configurable so it
   can point to persistent storage such as Google Drive, allowing `train --resume` to continue across
   Colab session disconnects.
 - **FR-018b**: System MUST train in full precision (fp32) by default and offer mixed precision as an
@@ -315,7 +334,11 @@ reported metrics within the stated tolerance.
   per-command overrides, prints human-readable progress, and returns a non-zero exit code on failure.
 - **FR-029**: System MUST include a technical report documenting implementation steps, the
   mathematical formulation, experimental setup, quantitative results, a qualitative assessment of
-  diversity, realism, and thematic consistency, and conclusions.
+  diversity, realism, and thematic consistency, **computational complexity** (parameter count,
+  network evaluations and wall-clock time per generated image, training time and peak GPU memory),
+  **distribution coverage** (spread of generated samples across the 10 CIFAR-10 classes as judged by
+  the Inception classifier, mode-collapse observations, and the nearest-neighbor panel), and
+  conclusions (Constitution: Experimental Workflow & Quality Gates, item 4).
 - **FR-030**: The report MUST explicitly explain the main difference between VAE and DDPM
   (single-step latent decoding with a pixel-space loss vs. multi-step iterative denoising with a
   noise-prediction loss) and the resulting trade-offs in sharpness, diversity, training stability,
@@ -366,7 +389,8 @@ reported metrics within the stated tolerance.
 - **SC-007**: The 5,000-image benchmark (sampling plus scoring) completes in under 3.5 hours on the
   local GPU (measured sampling estimate: 2.8–3.1 hours).
 - **SC-008**: A reviewer following only the README can reproduce the reported FID within ±5% and
-  Inception Score within ±0.3 using the published checkpoint and seed.
+  Inception Score within ±0.3 using the published checkpoint (a GitHub Release asset linked from the
+  README, ADR 0001 D10) and seed.
 - **SC-009**: The report contains all required GenCV003 sections and the DDPM vs. VAE comparison
   table, and a reviewer can state the main difference between the two approaches after reading it.
 - **SC-010**: In the nearest-neighbor panel, no generated image is a near-duplicate of a training
@@ -381,7 +405,7 @@ reported metrics within the stated tolerance.
   latent diffusion are out of scope and may be added in later features (e.g., `002-enhanced-ddpm`).
 - **Hardware**: Development and verification run on the local NVIDIA Quadro T2000 (4 GB physical,
   3 GB usable budget per SC-002). The official training run for reported results runs on a free
-  Google Colab T4 (15 GB) with the same configuration and seed (estimated ~3.5–4 h in fp32 versus
+  Google Colab T4 (15 GB) with the same model, diffusion and optimization settings and seed (estimated ~3.5–4 h in fp32 versus
   ~8.5 h measured locally; the Colab estimate is unmeasured). The 3 GB budget remains the default so
   every workflow still runs locally. Mixed precision is opt-in only, because the local probe showed
   it was slower and produced non-finite losses on the T2000; its benefit on the T4 is unverified.

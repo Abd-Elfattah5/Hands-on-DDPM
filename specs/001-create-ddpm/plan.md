@@ -55,7 +55,7 @@ local training; Google Colab T4 (15 GB) for the official training run
 - Deterministic for a fixed seed on the same hardware.
 
 **Scale/Scope**: CIFAR-10 (45k train / 5k val / 10k test); 1 model variant (unconditional baseline);
-6 CLI commands; ~25 source modules; 3 configs; 1 notebook; 1 technical report
+6 CLI commands; ~25 source modules; 2 configs; 1 notebook; 1 ADR; 1 technical report
 
 ## Constitution Check
 
@@ -70,9 +70,9 @@ local training; Google Colab T4 (15 GB) for the official training run
 | V. CLI-Driven Pipeline & Artifact Observability | Every workflow through the CLI; machine-readable metrics; organized artifacts | PASS | `contracts/cli.md`; the notebook only calls the CLI; JSON metrics (the constitution's "JSON/CSV" is satisfied by JSON alone); `artifacts/{runs,samples,strips,eval}` |
 | Tech Stack: Dependency isolation (`DDPM/`) | venv + `pyproject.toml` manifest | PASS | venv created; `pip install -e ".[dev]"` verified with CUDA |
 | Tech Stack: Hardware budget | Defaults fit the T2000; no 32×32 attention; accumulation for a larger effective batch | PASS | GPU probe (`research/gpu_memory_results.md`); `verify` memory check; `test_memory_budget.py` |
-| Tech Stack: Ecosystem consistency | Layout, CLI, config schema and reports mirror the VAE; deviations need an ADR | PASS | Parity table (research §15); the Colab path and notebook rationale are recorded in research §13 and `ARCHITECTURE_DEEP_DIVE.md` (no ADRs in this feature, by user decision) |
+| Tech Stack: Ecosystem consistency | Layout, CLI, config schema and reports mirror the VAE; deviations need an ADR | PASS | Every deviation is justified in `docs/adr/0001-deviations-from-hands-on-vae-conventions.md` (D1–D10), as the constitution requires; parity table in research §15 |
 | Prohibited patterns | No training loop in an unversioned notebook | PASS | The Colab notebook is versioned (`!notebooks/*.ipynb`) and contains no model or training code, only CLI calls |
-| Quality gates 1–5 | Pre-training gate, per-epoch tracking, evaluation gate, report, README | PASS | Plan phases P2/P3, P4, P6, P7 below |
+| Quality gates 1–5 | Pre-training gate, per-epoch tracking, evaluation gate, report (incl. computational complexity and distribution coverage), README | PASS | Plan phases P2/P3, P4, P6, P7 below; FR-029 and task T065 name both report items; `class_coverage` in the benchmark JSON supplies the coverage data |
 
 **Post-design re-check (after Phase 1)**: PASS. The data model, contracts and quickstart introduce no
 new dependencies or violations. The notebook is constrained to CLI calls, and the fused attention
@@ -148,6 +148,7 @@ tests/
 └── unit/
     ├── test_foundations.py      # types, base classes, config validation (incl. no 32×32 attention)
     ├── test_registry.py         # registration, KeyError messages, build_diffusion_from_config
+    ├── test_data.py             # split sizes, seeded split = VAE random_split, no flip on val/test, bounds
     ├── test_schedules.py        # linear/cosine values, monotonic ᾱ, ᾱ_T≈0, cosine clipping
     ├── test_forward_process.py  # q_sample closed form, statistics at t=T−1, posterior coefficients
     ├── test_shapes.py           # embedding, resblock, attention (SDPA vs einsum), U-Net I/O shapes
@@ -156,12 +157,15 @@ tests/
     ├── test_ema.py              # EMA update maths, copy_to, state round trip
     ├── test_checkpoint.py       # save/restore incl. EMA, history, rng; resume continues epoch/step
     ├── test_trainer.py          # 2-step CPU smoke train, accumulation equivalence, NaN guard
-    ├── test_metrics.py          # (port) FID=0 identical, known shift, IS uniform≈1, diverse
+    ├── test_metrics.py          # (port) FID=0 identical, known shift, IS uniform≈1, diverse, class_coverage
+    ├── test_evaluator.py        # fixed-seed, repeatable test loss
     ├── test_visualizer.py       # grid, denoise strip layout, nearest-neighbor panel files
     ├── test_cli.py              # Typer CliRunner: --help/--version, verify on tiny config, exit codes
     └── test_memory_budget.py    # CUDA-only: train/sample/Inception ≤ 3072 MiB
 
 docs/
+├── adr/
+│   └── 0001-deviations-from-hands-on-vae-conventions.md   # Required by the constitution for every VAE deviation
 └── reports/
     └── 001-baseline-ddpm-report.md   # GenCV003 Deliverable (a); written after results exist
 
@@ -176,9 +180,10 @@ pyproject.toml                   # + explicit numpy dependency (done)
 **Structure Decision**: Single Python project matching `Hands-on VAE`: `src/` subpackages without a
 top-level `src/__init__.py`, console script `ddpm = "src.cli.main:app"`, unit tests in `tests/unit/`.
 The only structural additions relative to the VAE are `notebooks/` (Colab driver) and
-`src/utils/memory.py`. Deliberately omitted relative to the VAE: MNIST config/loader, ADRs, VAE
-reference metrics and comparison code (the comparison is written manually in the report), CSV
-outputs, and `.gemini/`/`graphify-out/` (graphify runs after implementation).
+`src/utils/memory.py`. Deliberately omitted relative to the VAE: MNIST config/loader, VAE reference
+metrics and comparison code (the comparison is written manually in the report), CSV outputs, and
+`.gemini/`/`graphify-out/` (graphify runs after implementation). All of these deviations are
+justified in ADR 0001.
 
 ## Implementation Phases
 
@@ -209,3 +214,29 @@ documentation is drafted.
 |---|---|---|
 | Versioned Colab notebook (`notebooks/`, tracked in git) | User-chosen faster training on a T4 (Clarification Q4) | A self-contained notebook (as in the VAE) would duplicate the model and violate the Prohibited Patterns rule; the notebook here only calls the CLI |
 | `torch.nn.functional.scaled_dot_product_attention` in attention | 170 MiB less memory, ~6% faster (measured) | Explicit einsum kept only as a test reference; `nn.MultiheadAttention` hides the projection layout |
+
+## Analysis Remediation Log (2026-10-03)
+
+`/speckit.analyze` reported 2 CRITICAL, 3 HIGH, 6 MEDIUM and 6 LOW findings. With the user's
+approval, every recommended option was applied; no change was made without being recorded here.
+
+| ID | Finding | Change applied | Files changed |
+|---|---|---|---|
+| K1 | Deviations from `Hands-on VAE` had no ADR (constitution MUST) | Created ADR 0001 listing deviations D1–D10; the constitution is unchanged | `docs/adr/0001-deviations-from-hands-on-vae-conventions.md`, plan Constitution Check and structure, `tasks.md` conventions, research §15 |
+| K2 | Report lacked computational complexity and distribution coverage (constitution MUST) | Both added to FR-029 and T065; benchmark JSON gains a `class_coverage` block (distinct Inception top-1 classes, marginal entropy, top-20 classes) computed from existing probabilities | `spec.md` FR-029, `tasks.md` T052/T055/T060/T065, `data-model.md` §5, `contracts/cli.md` §2.6 |
+| C1 | Index-based split could differ from the VAE's `random_split` partition | T016 pins train = `perm[:45000]`, val = `perm[45000:]` from `torch.randperm(50000, generator=seed)`; verified identical to `random_split` for seed 42; T011 tests the equality | `tasks.md` T011/T016, ADR 0001 D7 |
+| C2 | "Same configuration unchanged" contradicted the separate Colab config | FR-018a and the Hardware assumption now say identical model, diffusion and optimization settings and effective batch; per-step batch, accumulation and workers may differ | `spec.md` FR-018a and Assumptions, ADR 0001 D2 |
+| U1 | SC-008 required a "published checkpoint" that no task published | T064 publishes `best_checkpoint.pt` as a GitHub Release asset and documents the download in the README | `spec.md` SC-008, `tasks.md` T064, ADR 0001 D10 |
+| G1 | SC-003 (≥ 50% loss drop) had no task | T063 checks and records it | `tasks.md` T063 |
+| G2 | Same-seed training determinism (US2 scenario 5) untested | T032 (g) compares two seeded 1-epoch runs | `tasks.md` T032 |
+| G3 | SC-007 (benchmark < 3.5 h) never measured | T063 records the benchmark time against 3.5 h | `tasks.md` T063 |
+| I1 | Panel default (16 rows) vs SC-010 (≥ 64 samples) | `--nearest-rows` default changed to 64 | `tasks.md` T058, `contracts/cli.md` §2.4/§2.4.1, spec Clarifications |
+| A1 | Ambiguous trajectory label rule at index 999 | Single rule: label T = initial `x_T`; label k < T = state after reverse step at index k | `tasks.md` T043/T046, `ARCHITECTURE_DEEP_DIVE.md` §6.4 |
+| A2 | EMA/raw state-dict key prefixes unspecified | `model_state_dict` = full diffusion state dict; EMA shadow = denoiser-only, loaded via `model.denoiser.load_state_dict` | `tasks.md` T034, `data-model.md` §4 |
+| A3 | SC-001 (< 2 min verify) not checked | `verify` prints elapsed seconds; T028 records it | `tasks.md` T026/T028 |
+| I2 | Plan said "3 configs" | Now "2 configs; 1 ADR" | `plan.md` Scale/Scope |
+| I3 | HANDOFF stale (64 × 2, MNIST) | Planning-update note added at the top of HANDOFF now; full rewrite stays in T067 | `HANDOFF.md`, `README.md` tree (ADR folder) |
+| I4 | `test_data.py`, `test_evaluator.py` missing from plan tree | Added to the source layout | `plan.md` structure |
+| D1 | JSON-only vs constitution "JSON/CSV" | Kept JSON only; justified in ADR 0001 D4 (constitution unchanged) | ADR 0001 |
+| T1 | `mixed_precision: false` (config) vs `none` (CLI) | Config now uses `none` everywhere: `none` / `bf16` / `fp16` | `data-model.md` §3, `tasks.md` T005/T006/T035/T039, `research.md` §7 |
+

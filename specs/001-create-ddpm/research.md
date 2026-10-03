@@ -90,7 +90,7 @@ All Technical Context unknowns are resolved; no `NEEDS CLARIFICATION` items rema
 
 ## 7. Precision & Determinism
 
-- **Decision**: fp32 by default; `training.mixed_precision: false` with opt-in `bf16`/`fp16` autocast
+- **Decision**: fp32 by default; `training.mixed_precision: none` with opt-in `bf16`/`fp16` autocast
   plus GradScaler for fp16. A non-finite loss stops training with exit code 2 and does not overwrite
   `best_checkpoint.pt` (FR-018b). Seeding uses the VAE `seed_everything` (Python, NumPy, torch, CUDA,
   `cudnn.deterministic=True`, `cudnn.benchmark=False`). Sampling uses a dedicated `torch.Generator`
@@ -204,7 +204,8 @@ All Technical Context unknowns are resolved; no `NEEDS CLARIFICATION` items rema
 
 ## 15. Repository Parity Gap Analysis (vs. Hands-on VAE)
 
-Status after the plan review on 2026-10-02:
+Status after the plan review on 2026-10-02 (every deviation below is justified in
+`docs/adr/0001-deviations-from-hands-on-vae-conventions.md`):
 
 | VAE artifact | DDPM decision |
 |---|---|
@@ -213,10 +214,10 @@ Status after the plan review on 2026-10-02:
 | `CONTEXT.md` (domain glossary) | **Created** in this planning step |
 | `ARCHITECTURE_DEEP_DIVE.md` | **Created** in this planning step; results added in P8 |
 | `specs/.../contracts/cli.md` | **Created** in this planning step |
-| `docs/adr/` | Not created (user decision) |
+| `docs/adr/` | ADR 0001 records all deviations (required by the constitution; added 2026-10-03) |
 | `docs/reports/` | `001-baseline-ddpm-report.md` written after results exist (P8), with the manual VAE comparison |
 | `configs/cifar10_baseline.yaml` | Present; updated to 32 × 4 and the new schema keys in P1 |
-| `configs/mnist_baseline.yaml` + `src/data/mnist.py` | Not created (user decision); the HANDOFF mention is stale |
+| `configs/mnist_baseline.yaml` + `src/data/mnist.py` | Not created (user decision; ADR 0001 D1); HANDOFF now carries a note |
 | `configs/cifar10_colab.yaml` | New (P7) |
 | `src/**`, `tests/**` | Created during implementation (P1–P9) |
 | Colab notebook | `notebooks/ddpm_colab_training.ipynb`, tracked in git (P7) |

@@ -11,6 +11,18 @@
 
 ---
 
+> **Planning update (2026-10-03)**: Sections 4–6 below predate the specification. The authoritative
+> design is now `specs/001-create-ddpm/` (spec, plan, research, data model, contracts, tasks).
+> Differences from this document:
+> - Training uses batch **32 × 4** gradient accumulation locally (measured 1,625 MiB within a 3 GB
+>   budget) and 128 × 1 on Colab, not 64 × 2.
+> - There is **no MNIST** config or loader.
+> - Deviations from `Hands-on VAE` are justified in `docs/adr/0001-deviations-from-hands-on-vae-conventions.md`.
+> - Metrics are JSON only.
+> - The VAE comparison is written manually in the report.
+>
+> Follow `specs/001-create-ddpm/tasks.md` for implementation. This file is fully rewritten in task T067.
+
 ## 1. Project Mission & Objective
 
 This repository is the sibling project to `Hands-on VAE`. In the VAE project, we proved both mathematically and empirically that continuous single-stage Variational Autoencoders inherently suffer from the **$L_2$ conditional mean smoothing trap**—producing soft, blurred reconstructions because the pixel-wise loss forces the model to predict the conditional expectation $\mathbb{E}[x|z]$.

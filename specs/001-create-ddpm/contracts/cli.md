@@ -120,7 +120,7 @@ ddpm sample --checkpoint <ckpt> [--num-samples 64] [--seed N] [--batch-size 256]
   - `--save-individual`: Also save each image as `<out_stem>/NNNNN.png`. *[Optional]*
   - `--nearest`: Also build the nearest-neighbor memorization panel (§2.4.1). *[Optional]*
   - `--nearest-k INT`: Neighbors shown per generated image. *[Default: 3]*
-  - `--nearest-rows INT`: Generated images included in the panel. *[Default: 16]*
+  - `--nearest-rows INT`: Generated images included in the panel. *[Default: 64]* (SC-010 inspects at least 64)
 - **Output**: Grid PNG plus `<out_stem>_timing.json` (`num_samples`, `seed`, `sampling_seconds_total`,
   `sampling_seconds_per_image`, `device_name`). Finished batches are written as they complete.
 
@@ -143,7 +143,7 @@ images would also score well.
 row 1:     [ sample 1 ] | [ train #a ]  [ train #b ]  [ train #c ]
 row 2:     [ sample 2 ] | [ train #d ]  [ train #e ]  [ train #f ]
 ...
-row 16:    [ sample 16] | ...
+row 64:    [ sample 64] | ...
 ```
 
 **How to read it**: If a generated image is almost pixel-identical to its first neighbor, the model
@@ -192,7 +192,8 @@ ddpm benchmark --checkpoint <ckpt> [--num-samples 5000] [--batch-size 64] [--sam
 - **Output**: `benchmark_metrics.json` with every key in [data-model.md §5](../data-model.md),
   including the values needed for the manual DDPM vs. VAE table in the final report
   (`fid`, `inception_score_mean/std`, `sampling_seconds_per_image`, `num_parameters`,
-  `training_seconds`). No VAE files are read. Example console (values illustrative):
+  `training_seconds`) and the `class_coverage` block used for the report's distribution-coverage
+  section. No VAE files are read. Example console (values illustrative):
 
 ```text
 Benchmark (EMA, 5000 samples, seed 42)

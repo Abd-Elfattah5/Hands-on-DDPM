@@ -94,7 +94,7 @@ Dataclass sections; unknown keys raise `ConfigError`. Defaults correspond to `co
 | | `grad_accum_steps` | `4` | ≥ 1 (effective batch = batch_size × grad_accum_steps) |
 | | `gradient_clip_val` | `1.0` | > 0 |
 | | `ema_decay` | `0.9999` | 0 < x < 1 |
-| | `mixed_precision` | `false` | `false` / `bf16` / `fp16` |
+| | `mixed_precision` | `none` | `none` / `bf16` / `fp16` |
 | | `save_every` | `10` | ≥ 1 epochs |
 | | `sample_every` | `5` | ≥ 1 epochs (EMA grid) |
 | `sampling` | `batch_size` | `256` | ≥ 1 |
@@ -113,8 +113,8 @@ Dataclass sections; unknown keys raise `ConfigError`. Defaults correspond to `co
 | `format_version` | str | `"1.0"` |
 | `epoch` | int | Last completed epoch (resume starts at `epoch + 1`) |
 | `global_step` | int | Optimizer steps (not micro-batches) |
-| `model_state_dict` | dict | Raw network weights |
-| `ema_state_dict` | dict | EMA shadow weights plus `num_updates` |
+| `model_state_dict` | dict | Full `GaussianDiffusion.state_dict()` with raw weights (keys prefixed `denoiser.`; schedule buffers are non-persistent and rebuilt from `config`) |
+| `ema_state_dict` | dict | `{decay, num_updates, shadow}`; `shadow` is the **denoiser-only** EMA state dict, loaded with `model.denoiser.load_state_dict` |
 | `optimizer_state_dict` | dict | AdamW |
 | `scheduler_state_dict` | dict or None | Warmup scheduler |
 | `scaler_state_dict` | dict or None | Only when fp16 |
@@ -148,6 +148,7 @@ Tags and files: `latest.pt` (every epoch), `best_checkpoint.pt` and `best.pt` (o
 | `inception_score_mean` / `inception_score_std` | float | `benchmark` |
 | `benchmark_samples` | int (5000) | `benchmark` |
 | `sampling_seconds_total` / `sampling_seconds_per_image` | float | `benchmark`, `sample` |
+| `class_coverage` | object: `distinct_top1_classes` (int), `marginal_entropy_nats` (float), `top20` (list of `[imagenet_index, count]`) | `benchmark` (distribution coverage for the report, FR-029) |
 | `num_parameters` | int | `benchmark` |
 | `training_seconds` | float (from the run's `metrics.json`, if present) | `benchmark` |
 | `device_name` | str | all |

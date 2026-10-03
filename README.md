@@ -33,6 +33,8 @@ This repository implements a ground-up **Denoising Diffusion Probabilistic Model
 │   ├── cifar10_baseline.yaml       # Local: T=1000 linear, UNet [64,128,256], batch 32 × accumulation 4
 │   └── cifar10_colab.yaml          # Colab: same model and optimization, batch 128 × accumulation 1
 ├── docs/
+│   ├── adr/
+│   │   └── 0001-deviations-from-hands-on-vae-conventions.md # Justified differences from Hands-on VAE
 │   └── reports/
 │       └── 001-baseline-ddpm-report.md # GenCV003 technical report (written after training)
 ├── notebooks/

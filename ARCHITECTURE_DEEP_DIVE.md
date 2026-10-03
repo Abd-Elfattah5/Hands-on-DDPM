@@ -172,6 +172,7 @@ Learned variances (Nichol & Dhariwal) are out of scope for this feature.
 
 ### 6.4 Denoising Strip
 - Frames are captured at $t = 1000, 800, 600, 400, 200, 100, 50, 0$ and shown as a strip, illustrating that coarse structure appears first (around $t \approx 400$–$200$) and fine detail last.
+- Label rule: $t = 1000$ is the initial noise $x_T$ before any reverse step; label $k < 1000$ is the image after the reverse step at zero-based index $k$, so $t = 0$ is the final clamped output.
 
 ---
 
@@ -184,10 +185,15 @@ Learned variances (Nichol & Dhariwal) are out of scope for this feature.
 - These numbers are comparable with the VAE but not with published 50k-sample FIDs (5k samples give a slightly higher, noisier FID).
 
 ### 7.2 Memorization Check (Nearest-Neighbor Panel)
-- `sample --nearest` finds, for each generated image, the 3 closest training images by pixel L2 distance and shows them side by side.
+- `sample --nearest` finds, for each of the first 64 generated images (`--nearest-rows`), the 3 closest training images by pixel L2 distance and shows them side by side.
 - Near-identical pairs indicate memorization; similar-but-different images indicate generalization. A low FID alone can't distinguish the two.
 
-### 7.3 Test Loss
+### 7.3 Computational Complexity and Distribution Coverage (Required in the Report)
+- The constitution requires the report to cover both.
+- **Computational complexity**: parameter count, 1,000 network evaluations per generated image (vs. 1 for the VAE), measured seconds per image and per 5,000 images, training time and peak GPU memory.
+- **Distribution coverage**: `ddpm benchmark` stores a `class_coverage` block (number of distinct Inception top-1 classes, entropy of the marginal class distribution, the 20 most frequent classes) computed from the same probabilities used for IS. The report combines it with a visual check that all 10 CIFAR-10 object types appear and with the nearest-neighbor findings.
+
+### 7.4 Test Loss
 - $L_{\text{simple}}$ on the test split with fixed-seed timesteps and noise, so the value is repeatable between runs.
 
 ---
@@ -212,6 +218,10 @@ Learned variances (Nichol & Dhariwal) are out of scope for this feature.
 - Local training and Colab training run the **same** `ddpm train` command.
 - The Colab notebook only mounts Google Drive, installs the package and calls the CLI with `--output-dir` on Drive (resuming automatically after disconnects).
 - No model or training code lives in the notebook, which keeps the constitution's rule against notebook-only training loops.
+- The two configs differ only in per-step batch, accumulation steps and data workers; model, diffusion and optimization settings and the effective batch of 128 are identical.
+
+### 8.5 Recorded Deviations from Hands-on VAE
+- Every place where this repository intentionally differs from `Hands-on VAE` (no MNIST, two configs, tracked Colab notebook, JSON only, manual VAE comparison, EMA-based checkpoint selection, index-based split identical to the VAE's, history-restoring resume, published checkpoint) is justified in `docs/adr/0001-deviations-from-hands-on-vae-conventions.md`, as the constitution requires.
 
 ---
 
