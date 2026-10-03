@@ -1,3 +1,5 @@
+# Baseline DDPM on CIFAR-10 for the local GPU (Quadro T2000, 3 GB measured budget).
+# Effective batch = data.batch_size × training.grad_accum_steps = 32 × 4 = 128.
 experiment:
   name: "cifar10_baseline"
   seed: 42
@@ -7,11 +9,13 @@ experiment:
 data:
   dataset: "cifar10"
   data_dir: "data"
-  batch_size: 64
+  batch_size: 32
   num_workers: 4
   val_split: 0.1
+  random_flip: true
 
 model:
+  name: "unet"
   in_channels: 3
   out_channels: 3
   image_size: 32
@@ -19,20 +23,39 @@ model:
   num_res_blocks: 2
   attention_resolutions: [16, 8]
   num_heads: 4
+  num_groups: 32
   dropout: 0.1
   time_embed_dim: 256
 
 diffusion:
+  name: "gaussian"
+  schedule: "linear"
   timesteps: 1000
-  beta_schedule: "linear"
   beta_start: 0.0001
   beta_end: 0.02
+  cosine_s: 0.008
+  variance_type: "fixed_large"
 
 training:
   epochs: 100
   lr: 0.0002
   weight_decay: 0.0
-  ema_decay: 0.9999
+  warmup_steps: 5000
+  grad_accum_steps: 4
   gradient_clip_val: 1.0
+  ema_decay: 0.9999
+  mixed_precision: "none"
   save_every: 10
-  eval_every: 2
+  sample_every: 5
+
+sampling:
+  batch_size: 256
+  strip_steps: [1000, 800, 600, 400, 200, 100, 50, 0]
+
+evaluation:
+  num_samples: 5000
+  batch_size: 64
+  is_splits: 10
+
+verify:
+  memory_budget_mib: 3072

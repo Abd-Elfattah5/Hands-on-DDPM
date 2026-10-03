@@ -82,7 +82,8 @@ Dataclass sections; unknown keys raise `ConfigError`. Defaults correspond to `co
 | | `num_groups` | `32` | ≥ 1 |
 | | `dropout` | `0.1` | 0 ≤ x < 1 |
 | | `time_embed_dim` | `256` | ≥ 1 |
-| `diffusion` | `schedule` | `linear` | registered schedule name |
+| `diffusion` | `name` | `gaussian` | registered diffusion name (added at implementation, T005, so the registry selects the process like `model.name`) |
+| | `schedule` | `linear` | registered schedule name |
 | | `timesteps` | `1000` | ≥ 1 |
 | | `beta_start` / `beta_end` | `1e-4` / `0.02` | 0 < start < end < 1 (linear) |
 | | `cosine_s` | `0.008` | > 0 (cosine) |
