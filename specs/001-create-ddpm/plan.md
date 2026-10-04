@@ -283,3 +283,12 @@ Hardening applied with R1: reused batches are loaded with `torch.load(..., weigh
 | T065 | Report figures copied from gitignored `artifacts/` to `docs/reports/figures/` (2.2 MB; strip also zoomed to t = 200 → 0 at the user's request) so the report renders on GitHub | User request; report must be self-contained | report §5–§6 |
 | T072 | Notebook committed with its Colab outputs (training log of the official run); scanned for tokens before committing: none present | Provenance of the reported run | this log |
 
+## Delivery Change Log (2026-10-05)
+
+| Change | Reason | Files |
+|---|---|---|
+| Tracked `artifacts/` metrics, sample grids, strips, run logs and epoch grids; weights, Drive downloads and benchmark sample batches stay ignored | User request: results visible in the repo | `.gitignore` |
+| Report §8 "Making DDPM Faster": DDIM timestep skipping (formula, estimated 10–50× faster sampling with this checkpoint), other fast samplers, and ways to cut training time (EMA horizon, mixed precision, schedules, latent diffusion) | User request | report |
+| GenCV003 audit fixes: implementation-steps list, fused attention note, consistent sampling time (2.16 s/image), README/quickstart/notebook commands use `--weights raw`, notebook `BRANCH = "main"`, README tree (artifacts, figures, tests), MIT `LICENSE` added, unused `scikit-learn` dependency removed | GenCV003 Deliverable b reproducibility | README, report, quickstart, contracts/cli.md, notebook, LICENSE, pyproject.toml |
+| Cross-links to the Hands-on-VAE reports; both repositories made public | User request: reviewers can click through | README, report |
+

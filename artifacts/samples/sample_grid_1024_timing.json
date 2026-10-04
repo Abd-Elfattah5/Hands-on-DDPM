@@ -1,0 +1,10 @@
+{
+  "num_samples": 64,
+  "seed": 42,
+  "weights": "raw",
+  "checkpoint": "artifacts/runs/cifar10_baseline/best_checkpoint.pt",
+  "sampling_seconds_total": 276.423,
+  "sampling_seconds_per_image": 4.3191,
+  "device_name": "Quadro T2000",
+  "timestamp": "2026-10-04T18:54:22.854653+00:00"
+}

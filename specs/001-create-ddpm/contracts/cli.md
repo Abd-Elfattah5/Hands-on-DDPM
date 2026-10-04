@@ -114,6 +114,7 @@ ddpm evaluate --checkpoint <ckpt> [--weights ema|raw] [--batch-size N] [--data-d
 ```bash
 ddpm sample --checkpoint <ckpt> [--num-samples 64] [--seed N] [--batch-size 256]
             [--weights ema|raw] [--out PATH] [--upscale 4] [--save-individual] [--nearest]
+            [--nearest-k 3] [--nearest-rows 64]
 ```
 
 - **Options**:
@@ -198,7 +199,7 @@ ddpm benchmark --checkpoint <ckpt> [--num-samples 5000] [--batch-size 64] [--sam
     noise from a generator seeded by (seed, batch index), so resumed and uninterrupted runs produce
     identical images. *[Optional]*
   - `-o, --out PATH`: *[Default: `artifacts/eval/benchmark_metrics.json`]*
-- **Steps**: (1) test loss; (2) generate N EMA samples in batches, saving them to
+- **Steps**: (1) test loss; (2) generate N samples in batches (EMA by default; the reported results use `--weights raw`), saving them to
   `artifacts/eval/samples_<seed>/`; (3) Inception features of the first N test images and the N
   samples; (4) FID, plus IS over 10 splits; (5) write JSON.
 - **Output**: `benchmark_metrics.json` with every key in [data-model.md §5](../data-model.md),

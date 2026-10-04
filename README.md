@@ -46,6 +46,8 @@ DDPM details:
 |---|---|
 | ![samples](docs/reports/figures/sample_grid.png) | ![strip](docs/reports/figures/denoise_strip_t200_to_0.png) |
 
+**Related repository**: the VAE half of GenCV003 lives in [Hands-on-VAE](https://github.com/Abd-Elfattah5/Hands-on-VAE) ([baseline report](https://github.com/Abd-Elfattah5/Hands-on-VAE/blob/main/docs/reports/001-baseline-vae-report.md), [enhanced report](https://github.com/Abd-Elfattah5/Hands-on-VAE/blob/main/docs/reports/002-enhanced-vae-report.md)); the full VAE vs. DDPM comparison is in §7 of the [DDPM report](docs/reports/001-baseline-ddpm-report.md#7-vae-vs-ddpm-main-difference-and-trade-offs).
+
 ---
 
 ## Project Structure
@@ -58,7 +60,9 @@ DDPM details:
 │   ├── adr/
 │   │   └── 0001-deviations-from-hands-on-vae-conventions.md # Justified differences from Hands-on VAE
 │   └── reports/
-│       └── 001-baseline-ddpm-report.md # GenCV003 technical report (written after training)
+│       ├── 001-baseline-ddpm-report.md # GenCV003 technical report
+│       └── figures/                # Figures embedded in the report
+├── artifacts/                      # Tracked results (no weights): eval/ metrics, samples/, strips/, runs/<run>/ logs + epoch grids
 ├── notebooks/
 │   └── ddpm_colab_training.ipynb   # Colab driver: mount Drive → install → verify → train --resume
 ├── specs/001-create-ddpm/          # Spec, plan, research, data model, CLI contract, quickstart
@@ -84,7 +88,7 @@ DDPM details:
 │   │   ├── checkpoint.py           # Checkpoint save/restore (raw + EMA weights, history)
 │   │   └── trainer.py              # Training loop: accumulation, warmup, clipping, EMA
 │   └── utils/                      # Seeding, logging, GPU memory measurement
-├── tests/unit/                     # Shape, schedule, diffusion, sampling, metric, memory tests
+├── tests/                          # conftest.py + unit/ (shape, schedule, diffusion, sampling, metric, CLI, memory tests)
 ├── ARCHITECTURE_DEEP_DIVE.md       # Design rationale for every decision
 ├── CONTEXT.md                      # Domain glossary
 ├── HANDOFF.md                      # Implementation handoff and mathematical guide
@@ -133,7 +137,7 @@ The `ddpm` command-line interface provides the complete workflow. Run `ddpm --he
 ```bash
 ddpm train --config configs/cifar10_baseline.yaml
 ```
-*Trains for 100 epochs at an effective batch of 128 (32 × 4 gradient accumulation), about 10 h on a Quadro T2000 (~6 min per epoch, measured). Emits `latest.pt` (every epoch), `best_checkpoint.pt`, `final_checkpoint.pt`, `metrics.json`, `loss_curve.png`, `train.log` and `samples/epoch_NNN.png` to `artifacts/runs/cifar10_baseline/`.*
+*Trains for 100 epochs at an effective batch of 128 (32 × 4 gradient accumulation), about 10 h on a Quadro T2000 (~6 min per epoch, measured). The reported run used 80 epochs on a Colab T4 (see results). Emits `latest.pt` (every epoch), `best_checkpoint.pt`/`best.pt`, `epoch_NNN.pt`, `final_checkpoint.pt`, `metrics.json`, `loss_curve.png`, `train.log` and `samples/epoch_NNN.png` to `artifacts/runs/cifar10_baseline/`.*
 
 A fresh run refuses to start in a directory that already holds checkpoints (so a finished run is never overwritten by accident); pass `--overwrite` to start over deliberately. Resume after an interruption:
 
@@ -144,16 +148,16 @@ ddpm train --config configs/cifar10_baseline.yaml --resume artifacts/runs/cifar1
 ### 2. Evaluate Held-Out Test Split
 
 ```bash
-ddpm evaluate --checkpoint artifacts/runs/cifar10_baseline/best_checkpoint.pt
+ddpm evaluate --checkpoint artifacts/runs/cifar10_baseline/best_checkpoint.pt --weights raw
 ```
-*Writes the test noise-prediction loss (EMA weights) to `artifacts/runs/cifar10_baseline/eval_metrics.json`.*
+*Writes the test noise-prediction loss to `artifacts/runs/cifar10_baseline/eval_metrics.json` (0.0309 with raw weights; 0.0390 with the default EMA weights).*
 
 ### 3. Quantitative Benchmarking (FID & Inception Score)
 
 ```bash
 ddpm benchmark --checkpoint artifacts/runs/cifar10_baseline/best_checkpoint.pt --weights raw --num-samples 5000
 ```
-*Generates 5,000 images (about 2.8 h on a T2000), computes FID against the first 5,000 CIFAR-10 test images and IS over 10 splits, and writes `artifacts/eval/benchmark_metrics.json`.*
+*Generates 5,000 images (2.99 h on a T2000, measured), computes FID against the first 5,000 CIFAR-10 test images and IS over 10 splits, and writes `artifacts/eval/benchmark_metrics.json`.*
 
 ### 4. Generate High-Resolution Sample Grids (+ Memorization Check)
 
@@ -190,7 +194,7 @@ gh release download v0.1.0-ddpm-baseline -R Abd-Elfattah5/Hands-on-DDPM -D artif
 mv artifacts/runs/cifar10_baseline/ddpm_cifar10_baseline_ep080.pt artifacts/runs/cifar10_baseline/best_checkpoint.pt
 ddpm benchmark --checkpoint artifacts/runs/cifar10_baseline/best_checkpoint.pt --weights raw --num-samples 5000 --seed 42
 ```
-*Reported results use `--weights raw` (EMA not yet converged after 80 epochs). Expected: FID ≈ 39.7, IS ≈ 5.2 on the same hardware and software; other GPUs should match within ±5% FID / ±0.3 IS.*
+*Reported results use `--weights raw` (EMA not yet converged after 80 epochs). Expected: FID ≈ 39.7, IS ≈ 5.2 on the same hardware and software; on other GPUs small differences are expected (not measured).*
 
 ### 7. Run Test Suite
 
@@ -218,4 +222,4 @@ The official training run uses a Colab GPU (e.g., T4), which has more compute an
 
 ## License
 
-This project is licensed under the MIT License.
+This project is licensed under the MIT License (see [`LICENSE`](LICENSE)).

@@ -1,0 +1,105 @@
+{
+  "timestamp": "2026-10-04T21:40:12.145903+00:00",
+  "checkpoint": "artifacts/runs/cifar10_baseline/best_checkpoint.pt",
+  "weights": "raw",
+  "seed": 42,
+  "test_loss": 0.030941,
+  "total_samples": 10000,
+  "fid": 39.69,
+  "inception_score_mean": 5.18,
+  "inception_score_std": 0.14,
+  "benchmark_samples": 5000,
+  "sampling_seconds_total": 10777.09,
+  "sampling_seconds_per_image": 2.1554,
+  "generated_samples": 5000,
+  "reused_batches": 0,
+  "class_coverage": {
+    "distinct_top1_classes": 322,
+    "marginal_entropy_nats": 5.8515,
+    "top20": [
+      [
+        335,
+        259
+      ],
+      [
+        351,
+        257
+      ],
+      [
+        339,
+        170
+      ],
+      [
+        152,
+        161
+      ],
+      [
+        371,
+        132
+      ],
+      [
+        168,
+        115
+      ],
+      [
+        167,
+        106
+      ],
+      [
+        392,
+        102
+      ],
+      [
+        491,
+        90
+      ],
+      [
+        166,
+        88
+      ],
+      [
+        856,
+        87
+      ],
+      [
+        194,
+        86
+      ],
+      [
+        103,
+        84
+      ],
+      [
+        653,
+        82
+      ],
+      [
+        675,
+        80
+      ],
+      [
+        80,
+        80
+      ],
+      [
+        278,
+        72
+      ],
+      [
+        408,
+        71
+      ],
+      [
+        383,
+        67
+      ],
+      [
+        680,
+        66
+      ]
+    ]
+  },
+  "num_parameters": 16056451,
+  "training_seconds": 18884.6,
+  "device_name": "Quadro T2000"
+}

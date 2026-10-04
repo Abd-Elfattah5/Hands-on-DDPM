@@ -1,0 +1,47 @@
+{
+  "timestamp": "2026-10-03T14:56:30.210209+00:00",
+  "checkpoint": "artifacts/runs/smoke/best_checkpoint.pt",
+  "weights": "ema",
+  "seed": 42,
+  "test_loss": 0.956989,
+  "total_samples": 10000,
+  "fid": 527.62,
+  "inception_score_mean": 1.23,
+  "inception_score_std": 0.06,
+  "benchmark_samples": 100,
+  "sampling_seconds_total": 218.44,
+  "sampling_seconds_per_image": 2.1844,
+  "class_coverage": {
+    "distinct_top1_classes": 6,
+    "marginal_entropy_nats": 4.469,
+    "top20": [
+      [
+        735,
+        49
+      ],
+      [
+        490,
+        41
+      ],
+      [
+        658,
+        3
+      ],
+      [
+        741,
+        3
+      ],
+      [
+        955,
+        3
+      ],
+      [
+        906,
+        1
+      ]
+    ]
+  },
+  "num_parameters": 16056451,
+  "training_seconds": 1129.1,
+  "device_name": "Quadro T2000"
+}

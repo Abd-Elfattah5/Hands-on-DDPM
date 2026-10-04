@@ -70,7 +70,7 @@ written. (Smoke-trained images look noisy; only integrity is checked here.)
 ddpm train --config configs/cifar10_baseline.yaml          # ~10 h on T2000 (~6 min/epoch measured), resumable
 ```
 
-**Expected**: 100 epochs, `peak_memory_mib` in every `metrics.json` record ≤ 3072 MiB (SC-002); training loss
+**Expected**: 100 epochs (the reported run stopped at 80 on Colab; SC-003 compares epoch 1 with the final epoch), `peak_memory_mib` in every `metrics.json` record ≤ 3072 MiB (SC-002); training loss
 drops ≥ 50% between epoch 1 and epoch 100 (SC-003).
 
 ## 7. Validation Scenario 6: Colab Training (official run)
@@ -88,13 +88,13 @@ the full history.
 ## 8. Validation Scenario 7: Benchmark (User Story 4)
 
 ```bash
-ddpm evaluate  --checkpoint artifacts/runs/cifar10_baseline/best_checkpoint.pt
-ddpm benchmark --checkpoint artifacts/runs/cifar10_baseline/best_checkpoint.pt --num-samples 5000
-ddpm sample    --checkpoint artifacts/runs/cifar10_baseline/best_checkpoint.pt -n 64 --seed 42 \
+ddpm evaluate  --checkpoint artifacts/runs/cifar10_baseline/best_checkpoint.pt --weights raw
+ddpm benchmark --checkpoint artifacts/runs/cifar10_baseline/best_checkpoint.pt --weights raw --num-samples 5000
+ddpm sample    --checkpoint artifacts/runs/cifar10_baseline/best_checkpoint.pt --weights raw -n 64 --seed 42 \
                --out artifacts/samples/sample_grid_1024.png --nearest
 ```
 
 **Expected**: `benchmark_metrics.json` with `fid`, `inception_score_mean/std`, `benchmark_samples:
 5000`, `sampling_seconds_per_image`, `num_parameters`, `training_seconds`; target FID < 50 (SC-004)
-and IS above both VAEs (SC-005; VAE values 169.02 / 181.00 are compared manually in the report); benchmark time < 3.5 h (SC-007); nearest-neighbor
+and IS above both VAEs (SC-005; VAE IS 2.11 / 1.68, FID 169.02 / 181.00, compared in the report). **Measured: FID 39.69, IS 5.18 ± 0.14** with `--weights raw` (EMA not converged at 80 epochs; ADR 0001 D11); benchmark time < 3.5 h (SC-007); nearest-neighbor
 panel shows no near-duplicates (SC-010).

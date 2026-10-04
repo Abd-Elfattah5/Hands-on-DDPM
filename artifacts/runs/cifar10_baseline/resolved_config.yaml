@@ -1,0 +1,65 @@
+experiment:
+  name: cifar10_colab
+  seed: 42
+  device: auto
+  output_dir: /content/drive/MyDrive/hands-on-ddpm/runs/cifar10_colab
+data:
+  dataset: cifar10
+  data_dir: data
+  batch_size: 128
+  num_workers: 2
+  val_split: 0.1
+  random_flip: true
+model:
+  name: unet
+  in_channels: 3
+  out_channels: 3
+  image_size: 32
+  channels:
+  - 64
+  - 128
+  - 256
+  num_res_blocks: 2
+  attention_resolutions:
+  - 16
+  - 8
+  num_heads: 4
+  num_groups: 32
+  dropout: 0.1
+  time_embed_dim: 256
+diffusion:
+  name: gaussian
+  schedule: linear
+  timesteps: 1000
+  beta_start: 0.0001
+  beta_end: 0.02
+  cosine_s: 0.008
+  variance_type: fixed_large
+training:
+  epochs: 100
+  lr: 0.0002
+  weight_decay: 0.0
+  warmup_steps: 5000
+  grad_accum_steps: 1
+  gradient_clip_val: 1.0
+  ema_decay: 0.9999
+  mixed_precision: none
+  save_every: 10
+  sample_every: 5
+sampling:
+  batch_size: 256
+  strip_steps:
+  - 1000
+  - 800
+  - 600
+  - 400
+  - 200
+  - 100
+  - 50
+  - 0
+evaluation:
+  num_samples: 5000
+  batch_size: 64
+  is_splits: 10
+verify:
+  memory_budget_mib: 3072

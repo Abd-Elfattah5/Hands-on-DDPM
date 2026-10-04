@@ -2,7 +2,7 @@
 
 **Assignment**: `GenCV003`, Part 2 (Deliverable a) · **Feature**: `001-create-ddpm` · **Date**: 2026-10-04
 **Repository**: `Abd-Elfattah5/Hands-on-DDPM` · **Checkpoint**: release `v0.1.0-ddpm-baseline`
-**Sibling report**: `Hands-on VAE/docs/reports/001-baseline-vae-report.md`
+**Sibling reports**: [baseline VAE](https://github.com/Abd-Elfattah5/Hands-on-VAE/blob/main/docs/reports/001-baseline-vae-report.md) · [enhanced VAE + VAE vs. DDPM comparison](https://github.com/Abd-Elfattah5/Hands-on-VAE/blob/main/docs/reports/002-enhanced-vae-report.md#6-vae-vs-ddpm-comparison)
 
 ---
 
@@ -47,12 +47,23 @@ Starting from $x_T\sim\mathcal{N}(0,I)$: $x_{t-1} = \mu_\theta(x_t,t) + \sigma_t
 
 ## 3. Architecture & Implementation
 
+**Implementation steps** (each step was gated by unit tests before the next; tasks in `specs/001-create-ddpm/tasks.md`):
+1. Config schema, seeding, logging and component registries (as in `Hands-on VAE`).
+2. Linear and cosine noise schedules with all derived buffers ($\alpha_t$, $\bar\alpha_t$, posterior terms).
+3. Closed-form forward process `q_sample` and the $L_{\text{simple}}$ loss.
+4. Time-conditioned U-Net: sinusoidal embedding, residual blocks, attention, skip connections.
+5. `ddpm verify` gate: schedule, forward statistics, shapes, gradients, reverse pass, 3 GB memory budget.
+6. Trainer: EMA, gradient accumulation, warmup, clipping, checkpoints, resume.
+7. Algorithm 2 sampler, sample grids, denoising strips.
+8. FID/IS (ported unchanged from the VAE), test loss, class coverage, nearest-neighbor panel.
+9. Colab driver notebook, official training run, benchmark, this report.
+
 | Component | Specification | File |
 |---|---|---|
 | Schedules | `linear` (default), `cosine` (s = 0.008, β ≤ 0.999), float64 precompute | `src/models/schedules.py` |
 | Timestep embedding | sinusoidal (64) → Linear(64, 256) → SiLU → Linear(256, 256) | `src/models/embeddings.py` |
 | Residual block | GroupNorm(32) → SiLU → Conv3×3 (+ time bias) → GroupNorm → SiLU → Dropout(0.1) → Conv3×3 (zero-init) + skip | `src/models/resnet.py` |
-| Attention | 4-head spatial self-attention at 16×16, 8×8 and bottleneck; none at 32×32 (memory) | `src/models/attention.py` |
+| Attention | 4-head spatial self-attention at 16×16, 8×8 and bottleneck; none at 32×32 (memory). Projections written by hand; the softmax(QKᵀ/√d)V product uses PyTorch's fused `scaled_dot_product_attention` kernel, verified against an explicit implementation in the tests | `src/models/attention.py` |
 | U-Net | channels [64, 128, 256], 2 res blocks/level down, 3 up, stride-2 conv down, nearest+conv up, zero-init head; **16,056,451 parameters** | `src/models/unet.py` |
 | Diffusion | buffers, `q_sample`, $L_{\text{simple}}$, `p_sample`, batched `sample` with trajectories | `src/models/gaussian_diffusion.py` |
 | Training | AdamW 2e-4, 5k-step warmup, clip 1.0, EMA 0.9999, accumulation, NaN/OOM guards, resume | `src/training/` |
@@ -119,9 +130,9 @@ compare to the VAE, not to Ho et al.'s 3.17.
 |---|---|---|
 | Parameters | 16.06 M | 1.60 M / 2.25 M |
 | Network evaluations per generated image | 1,000 | 1 |
-| Sampling time (T2000) | ≈ 2.03 s/image at batch 256 (≈ 2.8 h for 5,000) | milliseconds |
+| Sampling time (T2000) | 2.16 s/image at batch 256 (2.99 h for the 5,000-image benchmark) | milliseconds |
 | Training | 5.25 h (80 epochs, T4); ≈ 6 min/epoch on the T2000 | ~minutes per epoch |
-| Peak GPU memory | 1.8-1.9 GB training (32 × 4, T2000); 2.3 GB sampling (batch 256) | ~1 GB |
+| Peak GPU memory | 1.8-1.9 GB training (32 × 4, T2000); 2.3 GB sampling (batch 256) | 1.84 GB (VAE report) |
 
 Generation cost is the main price of DDPM: three orders of magnitude more network evaluations per image than the VAE.
 
@@ -202,8 +213,10 @@ with a pixel-space likelihood (ELBO). A DDPM keeps the full image dimension, has
 | Training stability | KL/reconstruction balance, posterior collapse risk | plain MSE regression, very stable |
 | Sharpness / diversity | low / moderate | high / high |
 
-**Quantitative comparison** (shared protocol). VAE values are copied from the `Hands-on VAE` benchmark JSONs
-(`artifacts/eval*/benchmark_metrics.json` there); the author should confirm them before submission:
+**Quantitative comparison** (shared protocol). VAE values come from the `Hands-on VAE` benchmark JSONs
+(`artifacts/eval/` and `artifacts/eval_enhanced/` there); see the
+[baseline VAE report](https://github.com/Abd-Elfattah5/Hands-on-VAE/blob/main/docs/reports/001-baseline-vae-report.md) and
+[enhanced VAE report](https://github.com/Abd-Elfattah5/Hands-on-VAE/blob/main/docs/reports/002-enhanced-vae-report.md):
 
 | Model | FID ↓ | IS ↑ | Parameters | Generation cost |
 |---|---|---|---|---|
@@ -211,15 +224,63 @@ with a pixel-space likelihood (ELBO). A DDPM keeps the full image dimension, has
 | VAE enhanced (d = 128, β-NLL) | 181.00 | 1.68 ± 0.04 | 2.25 M | 1 pass |
 | **DDPM (this work)** | **39.69** | **5.18 ± 0.14** | 16.06 M | 1,000 passes |
 
-## 8. Limitations
+## 8. Making DDPM Faster: Skipping Timesteps and Cheaper Training
+
+The two most expensive parts of this work were **training** (5.25 h on a T4 for 80 epochs, and still short of EMA
+convergence) and **sampling** (1,000 sequential network passes per image, 2.99 h for the 5,000-image benchmark).
+Several known techniques, listed in the project's enhancement taxonomy (`architectural_enhancements_taxonomy.html`,
+row group 7 "Sampler / Fast Inference"), reduce these costs. None were implemented here because the feature scope
+was the baseline Ho et al. model, but they are the natural next step.
+
+### 8.1 Skipping timesteps at sampling time: DDIM (no retraining needed)
+
+DDIM (Song et al., 2021) shows that a network trained with exactly this objective ($L_{\text{simple}}$,
+ε-prediction) also defines a **non-Markovian** reverse process that can **jump over timesteps**. Pick a short
+increasing subsequence $\tau = (\tau_1 < \dots < \tau_S)$ of $\{1,\dots,T\}$, e.g. every 20th or 50th step, and update
+
+$$\hat x_0 = \frac{x_{\tau_i} - \sqrt{1-\bar\alpha_{\tau_i}}\,\epsilon_\theta(x_{\tau_i},\tau_i)}{\sqrt{\bar\alpha_{\tau_i}}},\qquad
+x_{\tau_{i-1}} = \sqrt{\bar\alpha_{\tau_{i-1}}}\,\hat x_0 + \sqrt{1-\bar\alpha_{\tau_{i-1}}-\sigma_{\tau_i}^2}\;\epsilon_\theta(x_{\tau_i},\tau_i) + \sigma_{\tau_i} z .$$
+
+With $\sigma=0$ the process is deterministic (an ODE-like trajectory). Because only the *sampler* changes, the
+checkpoint from this report could be reused as is:
+
+| Sampler | Network passes / image | Estimated time / image (T2000, batch 256) | Estimated 5,000-image benchmark |
+|---|---|---|---|
+| DDPM, Algorithm 2 (this work) | 1,000 | 2.16 s (measured) | 2.99 h (measured) |
+| DDIM, S = 100 | 100 | ≈ 0.22 s | ≈ 18 min |
+| DDIM, S = 50 | 50 | ≈ 0.11 s | ≈ 9 min |
+| DDIM, S = 20 | 20 | ≈ 0.04 s | ≈ 4 min |
+
+The estimates scale the measured per-pass cost linearly. Song et al. report CIFAR-10 FID degrading only modestly
+from 1,000 to 50–100 steps, a 10–50× speed-up. Related options: learned interpolated variances (Nichol & Dhariwal,
+2021) keep quality with ~50–100 steps; higher-order ODE solvers (DPM-Solver, ~10–20 steps); and progressive
+distillation (Salimans & Ho, 2022), which trains a student to halve the step count repeatedly (down to 4–8 steps).
+
+### 8.2 Reducing training time (what would have shortened this run)
+
+DDIM does **not** shorten training: the network still has to learn ε-prediction at all noise levels. Training cost
+can be reduced instead by:
+
+- **A shorter EMA horizon.** The raw weights converged in ~15 epochs (§5.1), but EMA 0.9999 needs ~50k+ steps.
+  A decay of 0.999, or an EMA warm-up ($\text{decay}_k = \min(0.9999, \tfrac{1+k}{10+k})$), would have made the EMA
+  usable within this budget.
+- **Mixed precision on a GPU with bf16/fp16 tensor cores** (the T4 has fp16 tensor cores). This was opt-in here
+  because fp16 was unstable on the local T2000 (research log).
+- **Better noise schedules and loss weighting.** The cosine schedule (implemented, selectable), v-prediction
+  (taxonomy row group 3) and importance-sampled timesteps all improve sample quality per training step.
+- **Latent diffusion.** Running the diffusion in a compressed latent space (for example the latent of an
+  autoencoder like the VAE in the sibling repository) reduces the per-step cost for larger images. For 32×32 CIFAR-10
+  the gain is small.
+
+## 9. Limitations
 
 - Trained 80 of 100 planned epochs (28k steps, ~3.5% of Ho et al.'s 800k), so the EMA weights were not usable and FID
   is far from published values.
 - FID/IS use 5,000 samples (protocol parity with the VAE); not comparable to 50k-sample literature numbers.
-- Sampling cost: ~2 s per image on the local GPU; no accelerated sampler (DDIM) in scope.
+- Sampling cost: ~2 s per image on the local GPU; no accelerated sampler (DDIM, §8) was implemented in this feature.
 - Smaller U-Net than Ho et al. (16 M vs 35.7 M parameters) to fit the 4 GB local GPU.
 
-## 9. Conclusion
+## 10. Conclusion
 
 A DDPM written from first principles, trained for only 28k steps on free hardware, reaches **FID 39.69 and IS 5.18**
 under the same protocol on which the VAEs score FID 169-181 and IS 1.7-2.1. That is a 4× lower FID and 2.5× higher IS,
@@ -227,9 +288,10 @@ with visibly sharper, more varied samples and no memorization. The improvement c
 generation procedure, not capacity alone: predicting noise avoids the VAE's pixel-averaging blur, and the iterative
 reverse chain builds images coarse-to-fine (§6.2). The costs are equally clear: 10× more parameters, 1,000 network
 evaluations per image (≈ 2 s per image on a laptop GPU), and a training budget long enough for EMA weights to converge.
-Longer training (EMA), a larger U-Net, and faster samplers (DDIM) are the natural next steps.
+Longer training or a shorter EMA horizon, a larger U-Net, and timestep-skipping samplers such as DDIM (§8,
+estimated 10–50× faster generation without retraining) are the natural next steps.
 
-## 10. Reproduction
+## 11. Reproduction
 
 ```bash
 gh release download v0.1.0-ddpm-baseline -R Abd-Elfattah5/Hands-on-DDPM -D artifacts/runs/cifar10_baseline
