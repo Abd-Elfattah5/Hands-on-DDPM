@@ -3,7 +3,7 @@
 **Repository**: `Hands-on DDPM` (`/home/amousa1/Projects/Hands-on DDPM`) · GitHub `Abd-Elfattah5/Hands-on-DDPM` (private)
 **Assignment**: `GenCV003` Part 2 (DDPM), sibling of `Hands-on VAE`
 **Feature branch**: `001-create-ddpm` · **Date**: 2026-10-03
-**Status**: Implementation complete through User Story 4 (code, tests, CLI, Colab notebook). **Pending**: the official 100-epoch training run, final benchmark, report and README results (tasks T062–T066).
+**Status**: **Complete.** Trained (80 epochs, Colab T4), benchmarked (FID 39.69, IS 5.18 ± 0.14, raw weights), report, README and release published; PR to `main` opened (T072). Remaining for the user: confirm the VAE rows in the report, merge the PR, run graphify.
 
 ---
 
@@ -40,13 +40,21 @@
 | Sampling | ~2.2 s/image at batch 16–100; ≈ 2.8 h for 5,000 at batch 256 (probe) |
 | Determinism | same seed → byte-identical PNGs |
 
-## 4. Remaining Work (tasks.md Phase 7–8)
+## 4. Final Results (T062–T066)
 
-1. **T062** Run `notebooks/ddpm_colab_training.ipynb` on a Colab T4 (or locally: `ddpm train --config configs/cifar10_baseline.yaml`, ≈ 10 h, resumable). Copy `best_checkpoint.pt`, `metrics.json`, `loss_curve.png`, `samples/` from Drive `runs/cifar10_colab/` into `artifacts/runs/cifar10_colab/` (or use `artifacts/runs/cifar10_baseline/` for a local run).
-2. **T063** `ddpm evaluate`, `ddpm benchmark --num-samples 5000`, `ddpm sample -n 64 --seed 42 --upscale 4 --out artifacts/samples/sample_grid_1024.png --nearest`, `ddpm denoise-strip --num-images 8 --seed 42`; check SC-003/004/005/007/010 and record them in `research/gpu_memory_results.md` ("Final results").
-3. **T064** Publish `best_checkpoint.pt` as a GitHub Release, add results and the download command to `README.md`.
-4. **T065** Write `docs/reports/001-baseline-ddpm-report.md`, including computational complexity, distribution coverage and the manual DDPM vs. VAE table (VAE: FID 169.02 / 181.00, IS 2.11 / 1.68).
-5. **T066** Add a Results section to `ARCHITECTURE_DEEP_DIVE.md`; **T072** open the PR, then run graphify.
+| Item | Result |
+|---|---|
+| Training | 80 of 100 epochs (user decision), 28,080 steps, Tesla T4, 236 s/epoch, 5.25 h |
+| Weights reported | **raw** (EMA retains ~6% random init at 28k steps; its samples saturate). ADR 0001 D11 |
+| FID / IS | **39.69 / 5.18 ± 0.14** (VAE: 169.02 / 2.11 baseline, 181.00 / 1.68 enhanced) |
+| Test loss | 0.0309 (raw), 0.0390 (EMA) |
+| Benchmark time | 2.99 h sampling (2.16 s/image), ≈ 3.0–3.1 h total on the T2000 (< 3.5 h) |
+| Coverage / memorization | 322 Inception classes, max share 5.2% / nearest training L2 ≥ 4.75 |
+| Checkpoint | release `v0.1.0-ddpm-baseline`, asset `ddpm_cifar10_baseline_ep080.pt` |
+| Report | `docs/reports/001-baseline-ddpm-report.md` (figures in `docs/reports/figures/`) |
+| Artifacts (local, gitignored) | `artifacts/runs/cifar10_baseline/`, `artifacts/eval/`, `artifacts/samples/`, `artifacts/strips/`, Drive zips in `artifacts/downloads/` |
+
+Open for the user: verify the VAE numbers in the report's §7 table, merge the PR, then run graphify.
 
 ## 5. Mathematical Reference
 
@@ -54,4 +62,4 @@ The full derivations (forward process, closed form, posterior, ε-parametrizatio
 
 ## 6. Resume Prompt for the Next Session
 
-> *"We are continuing `Hands-on DDPM` (`/home/amousa1/Projects/Hands-on DDPM`, branch `001-create-ddpm`). Read `HANDOFF.md`, then `specs/001-create-ddpm/tasks.md`. Implementation through US4 is done and tested. Continue with T062 (official training run) onward."*
+> *"`Hands-on DDPM` feature 001 is complete (see `HANDOFF.md` §4 and `docs/reports/001-baseline-ddpm-report.md`). Possible next feature `002-enhanced-ddpm`: longer training / EMA decay warm-up, larger U-Net, DDIM sampling."*

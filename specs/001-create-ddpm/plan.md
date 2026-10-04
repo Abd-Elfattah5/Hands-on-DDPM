@@ -272,3 +272,14 @@ reported 5 warnings and 1 suggestion; all were fixed with the user's approval an
 
 Hardening applied with R1: reused batches are loaded with `torch.load(..., weights_only=True)`.
 
+## Results-Phase Change Log (2026-10-04)
+
+| Task | Change | Reason | Where documented |
+|---|---|---|---|
+| T062 | Official run stopped at **80 of 100 epochs** (single Colab T4 session, 5.25 h); not resumed | User decision: time budget; EMA judged close enough | research/gpu_memory_results.md "Colab T4 (measured)", spec Assumptions (Training budget), report |
+| T063 | Reported results use **raw weights** (`--weights raw`), not EMA | At 28,080 steps EMA 0.9999 retains ~6% of the random initialization; EMA samples saturate (56.9% of pixels at ±1) while raw samples are clean (1.7%), and raw test loss is lower (0.0309 vs 0.0390) | research/gpu_memory_results.md "Weights used for reporting", ADR 0001 D11, report |
+| T063 | Colab download extracted into `artifacts/runs/cifar10_baseline/`; Drive zips moved to `artifacts/downloads/` (gitignored); `loss_curve.png` regenerated locally from `metrics.json` (Colab `final_checkpoint.pt`/plot were not written because the run was stopped before epoch 100) | Run stopped manually | this log |
+| T064 | Checkpoint published as pre-release asset `v0.1.0-ddpm-baseline/ddpm_cifar10_baseline_ep080.pt` | SC-008 | README "Reproduce from the published checkpoint" |
+| T065 | Report figures copied from gitignored `artifacts/` to `docs/reports/figures/` (2.2 MB; strip also zoomed to t = 200 → 0 at the user's request) so the report renders on GitHub | User request; report must be self-contained | report §5–§6 |
+| T072 | Notebook committed with its Colab outputs (training log of the official run); scanned for tokens before committing: none present | Provenance of the reported run | this log |
+

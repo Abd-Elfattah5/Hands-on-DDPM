@@ -77,3 +77,42 @@ Smoke checkpoint (3 epochs, untrained-quality samples; integrity check only):
 written, FID 527.6 / IS 1.23 (meaningless at 3 epochs and 100 samples, the pipeline is what was
 validated); `ddpm sample --nearest` → panel and JSON written (min L2 27.7, no copies). Inception
 extraction ran at batch 64 within budget (test_memory_budget: 2,498 MiB).
+
+## Colab T4 (measured, 2026-10-03/04, T062)
+
+- `notebooks/ddpm_colab_training.ipynb` on a Tesla T4 (14.6 GB, torch 2.11.0+cu130), `configs/cifar10_colab.yaml`
+  (128 × 1), single uninterrupted session, **80 of 100 epochs** (stopped by the user; see "Weights used for reporting").
+- Mean **236 s/epoch** (≈ 208 s epoch 1, ≈ 340 s on sample-grid epochs), **5.25 h** total, peak 5,794 MiB on the T4
+  (the 3 GB budget applies to the local GPU only).
+- Final record (epoch 80, global step 28,080): train 0.0311, val 0.0293, val-EMA 0.0372.
+
+## Weights used for reporting (2026-10-04, T063)
+
+The EMA decay of 0.9999 keeps 0.9999^28,080 ≈ **6%** of the untrained initialization in the EMA copy at epoch 80.
+Measured on the final checkpoint:
+
+| Weights | Test L_simple (10,000 images) | Final-sample saturation (|x| > 0.98) | Visual |
+|---|---|---|---|
+| EMA | 0.0390 | **56.9%** (washed-out, high-contrast blobs) | not recognisable |
+| EMA + x₀ clipping (diagnostic only) | — | 1.7% | soft, low-contrast textures |
+| **Raw** | **0.0309** | **1.7%** | recognisable CIFAR-10 objects (horses, birds, cars, ships, deer) |
+
+The residual 6% of random initial weights still corrupts the 1,000-step reverse chain (errors compound), even though
+the EMA single-step loss is close to the raw one. **All reported results therefore use `--weights raw`**, which the CLI
+supports by design (FR-015: "allow raw weights to be selected"). With 100 epochs the residual would be 3%, and Ho et
+al. train ~800k steps where it is negligible. The diagnosis compared EMA and raw weights with plain Algorithm 2 and an x₀-clipped variant on 16 seeded
+samples (throwaway script, not kept in the repo; x₀ clipping is not used for any reported number, to stay
+faithful to Algorithm 2).
+
+## Final results (2026-10-04, T063)
+
+| Check | Result |
+|---|---|
+| SC-003 training loss drop | 0.906 → 0.031 (−96.6%), no NaN/Inf ✓ |
+| SC-010 memorization | 64 raw samples vs 50,000 training images: nearest L2 min 4.75, median 9.02 (pixels in [0,1], 3,072 dims); visual check of the closest pairs (e.g. sample 17 vs train #42014) shows same class/pose but different images: no copies ✓ |
+| Sampling speed (T2000, batch 256, raw) | ≈ 521 s per 256 images (2.03 s/image) |
+| SC-004 FID < 50 | **39.69** (5,000 raw-weight samples vs first 5,000 test images) ✓ |
+| SC-005 IS above both VAEs (2.11, 1.68) | **5.18 ± 0.14** ✓ |
+| SC-007 benchmark < 3.5 h on the T2000 | test loss + 5,000 samples + Inception scoring ≈ **3.0–3.1 h** wall clock (sampling 10,777 s = 2.99 h, 2.16 s/image; batches 2–3 were slowed by concurrent grid/strip generation) ✓ |
+| Test L_simple | 0.0309 (raw), 0.0390 (EMA) |
+| Class coverage | 322 distinct Inception top-1 classes, marginal entropy 5.85 nats |

@@ -417,6 +417,8 @@ reported metrics within the stated tolerance.
 - **Training budget**: The default baseline trains for 100 epochs with per-step batch 32 and 4-step
   gradient accumulation (effective batch 128); if this cannot reach SC-004 within the hardware budget, the epoch count is
   increased and the change is recorded in the report rather than altering the architecture.
+  **Actual (2026-10-04)**: the official run stopped at 80 epochs (user decision, time budget); results
+  are reported with raw weights because EMA had not converged at 28,080 steps (ADR 0001 D11).
 - **VAE reference metrics**: Baseline VAE (FID 169.02) and enhanced VAE (FID 181.00) results were
   produced with the same 5,000-sample protocol; the author adds them manually to the final report.
   The VAE models are not retrained and no VAE files are copied into this repository.

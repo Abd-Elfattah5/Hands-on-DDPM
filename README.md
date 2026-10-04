@@ -6,8 +6,6 @@
 
 A modular, from-scratch implementation and benchmarking pipeline for continuous Gaussian Denoising Diffusion Probabilistic Models (DDPM) in PyTorch. Developed for the deep generative vision modeling benchmark (`GenCV003`).
 
-> **Status**: Specified and planned (`specs/001-create-ddpm/`); implementation in progress. The commands below follow the CLI contract in `specs/001-create-ddpm/contracts/cli.md` and become available as each phase lands.
-
 ---
 
 ## Overview
@@ -23,6 +21,30 @@ This repository implements a ground-up **Denoising Diffusion Probabilistic Model
 * **Shared Benchmark Protocol**: FID and Inception Score over 5,000 generated vs. 5,000 real CIFAR-10 test images, identical to the sibling repository `Hands-on VAE`.
 * **Measured 3 GB GPU Budget**: Every workflow fits in 3 GB on a 4 GB Quadro T2000 (see `specs/001-create-ddpm/research/gpu_memory_results.md`).
 * **Local CLI + Colab**: Train locally with the `ddpm` CLI, or run the same CLI on a faster Colab GPU through `notebooks/ddpm_colab_training.ipynb`.
+
+---
+
+## Quantitative Benchmark Results (CIFAR-10)
+
+Shared protocol with `Hands-on VAE`: 5,000 generated images vs. the first 5,000 CIFAR-10 test images, torchvision Inception-v3, IS over 10 splits. Full analysis: [`docs/reports/001-baseline-ddpm-report.md`](docs/reports/001-baseline-ddpm-report.md).
+
+| Model | FID ↓ | IS ↑ | Parameters | Passes per image |
+|---|---|---|---|---|
+| VAE baseline (`Hands-on VAE` 001) | 169.02 | 2.11 ± 0.03 | 1.60 M | 1 |
+| VAE enhanced (`Hands-on VAE` 002) | 181.00 | 1.68 ± 0.04 | 2.25 M | 1 |
+| **DDPM (this repo)** | **39.69** | **5.18 ± 0.14** | 16.06 M | 1,000 |
+
+DDPM details:
+- Trained for 80 epochs (28,080 optimizer steps, effective batch 128) on a **Tesla T4** (Google Colab) in 5.25 h.
+- Evaluated with **raw weights** on a **Quadro T2000**. The EMA weights had not converged at 80 epochs; see the report, §4.
+- Test noise-prediction loss 0.0309.
+- 2.16 s per image to sample (2.99 h for the 5,000-image benchmark).
+- Samples spread over 322 distinct Inception classes.
+- No memorization: nearest training-image L2 distance ≥ 4.75.
+
+| Samples (raw weights, seed 42) | Reverse process (t = 200 → 0) |
+|---|---|
+| ![samples](docs/reports/figures/sample_grid.png) | ![strip](docs/reports/figures/denoise_strip_t200_to_0.png) |
 
 ---
 
@@ -104,7 +126,7 @@ ddpm verify --config configs/cifar10_baseline.yaml
 
 ## CLI Reproduction Guide
 
-The `ddpm` command-line interface provides the complete workflow. Run `ddpm --help` or `ddpm <command> --help` for every option.
+The `ddpm` command-line interface provides the complete workflow. Run `ddpm --help` or `ddpm <command> --help` for every option. Sampling commands default to EMA weights; the reported results use `--weights raw` (see the results section above).
 
 ### 1. Train the Baseline DDPM (Local GPU)
 
@@ -129,7 +151,7 @@ ddpm evaluate --checkpoint artifacts/runs/cifar10_baseline/best_checkpoint.pt
 ### 3. Quantitative Benchmarking (FID & Inception Score)
 
 ```bash
-ddpm benchmark --checkpoint artifacts/runs/cifar10_baseline/best_checkpoint.pt --num-samples 5000
+ddpm benchmark --checkpoint artifacts/runs/cifar10_baseline/best_checkpoint.pt --weights raw --num-samples 5000
 ```
 *Generates 5,000 images (about 2.8 h on a T2000), computes FID against the first 5,000 CIFAR-10 test images and IS over 10 splits, and writes `artifacts/eval/benchmark_metrics.json`.*
 
@@ -142,6 +164,7 @@ ddpm sample \
   --out artifacts/samples/sample_grid_1024.png \
   --upscale 4 \
   --seed 42 \
+  --weights raw \
   --nearest
 ```
 *Outputs a $1024 \times 1024$ grid of 64 samples. `--nearest` also writes `sample_grid_1024_nearest.png`: each generated image next to its 3 closest training images, to check that the model is not copying training data.*
@@ -153,16 +176,28 @@ ddpm denoise-strip \
   --checkpoint artifacts/runs/cifar10_baseline/best_checkpoint.pt \
   --num-images 8 \
   --out artifacts/strips/denoise_strip.png \
-  --seed 42
+  --seed 42 \
+  --weights raw
 ```
 *Rows are images, columns are timesteps $t = 1000, 800, 600, 400, 200, 100, 50, 0$.*
 
-### 6. Run Test Suite
+### 6. Reproduce from the Published Checkpoint
+
+The reported checkpoint is attached to release [`v0.1.0-ddpm-baseline`](https://github.com/Abd-Elfattah5/Hands-on-DDPM/releases/tag/v0.1.0-ddpm-baseline):
+
+```bash
+gh release download v0.1.0-ddpm-baseline -R Abd-Elfattah5/Hands-on-DDPM -D artifacts/runs/cifar10_baseline
+mv artifacts/runs/cifar10_baseline/ddpm_cifar10_baseline_ep080.pt artifacts/runs/cifar10_baseline/best_checkpoint.pt
+ddpm benchmark --checkpoint artifacts/runs/cifar10_baseline/best_checkpoint.pt --weights raw --num-samples 5000 --seed 42
+```
+*Reported results use `--weights raw` (EMA not yet converged after 80 epochs). Expected: FID ≈ 39.7, IS ≈ 5.2 on the same hardware and software; other GPUs should match within ±5% FID / ±0.3 IS.*
+
+### 7. Run Test Suite
 
 ```bash
 pytest tests/ -v
 ```
-*Verifies tensor shapes, schedule and forward-process formulas, gradient flow, sampling determinism, EMA, checkpoint/resume, FID/IS calculations, and the 3 GB memory budget (CUDA only).*
+*Runs 90 tests covering tensor shapes, schedule and forward-process formulas, gradient flow, sampling determinism, EMA, checkpoint/resume, FID/IS calculations, the CLI contract and the 3 GB memory budget (CUDA only).*
 
 ---
 

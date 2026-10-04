@@ -2,7 +2,7 @@
 
 This document gives the top-down technical rationale for every architectural decision, hyperparameter and mathematical formulation chosen for the baseline Denoising Diffusion Probabilistic Model (DDPM). It is the sibling of `Hands-on VAE/ARCHITECTURE_DEEP_DIVE.md`, which ends with the motivation for this project (§13 there: "The Transition to DDPM").
 
-> **Status**: Written at planning time (`specs/001-create-ddpm`). Design decisions and measured hardware numbers are final; empirical results (FID, IS, samples) are added after training.
+> **Status**: Final. Design decisions, measured hardware numbers and empirical results (§11) are complete; full analysis in `docs/reports/001-baseline-ddpm-report.md`.
 
 ---
 
@@ -237,7 +237,7 @@ Measured on the NVIDIA Quadro T2000 (4 GB, budget 3,072 MiB per process), full a
 | Sampling | batch 256 | 2,061 MiB | ~2.8 h for 5,000 images |
 | Inception (FID/IS) | batch 64 | 2,269 MiB | — |
 
-Training speed is limited by compute (TFLOPS) and memory bandwidth, not by memory size. 32 × 4 and 64 × 2 take the same time per update on the T2000. The official training run therefore uses a Colab T4 (≈ 2× the compute and 2.5× the bandwidth; estimated ~3.5–4 h, not yet measured) with 128 × 1, which gives the same effective batch.
+Training speed is limited by compute (TFLOPS) and memory bandwidth, not by memory size. 32 × 4 and 64 × 2 take the same time per update on the T2000. The official training run therefore used a Colab T4 with 128 × 1, which gives the same effective batch. **Measured on the T4: 236 s per epoch (≈ 1.5× faster than the T2000's ~6 min), 5.25 h for 80 epochs, 5.8 GB peak.**
 
 ---
 
@@ -261,3 +261,30 @@ Training speed is limited by compute (TFLOPS) and memory bandwidth, not by memor
 ```
 
 The quantitative comparison (FID, IS, seconds per image, training time) is added to `docs/reports/001-baseline-ddpm-report.md` once results exist.
+
+---
+
+## 11. Results (80 epochs, raw weights)
+
+| Metric | DDPM | VAE baseline / enhanced |
+|---|---|---|
+| FID ↓ (5,000 vs 5,000) | **39.69** | 169.02 / 181.00 |
+| Inception Score ↑ | **5.18 ± 0.14** | 2.11 / 1.68 |
+| Test $L_{\text{simple}}$ | 0.0309 | — |
+| Sampling | 2.16 s/image (T2000, batch 256) | 1 pass |
+| Class coverage | 322 Inception classes, entropy 5.85 nats, max share 5.2% | — |
+| Memorization | none (nearest training L2 ≥ 4.75) | — |
+
+Observations that refine the design discussion above:
+
+1. **The EMA trade-off (§4.4) depends on training length.** At 28,080 steps, EMA 0.9999 still retains
+   $0.9999^{28080}\approx6\%$ of the random initialization. Its single-step loss looked fine (0.0390), but over 1,000
+   reverse steps the error compounded and 57% of sample pixels saturated. The raw weights (1.7% saturation) were used for
+   all results (ADR 0001 D11). For short runs, a smaller decay (e.g. 0.999) or a warm-up of the decay would be preferable.
+2. **Coarse-to-fine generation (§6.4) is confirmed.** Frames stay noise-like down to $t\approx400$
+   ($\sqrt{\bar\alpha_t}=0.44$); layout and colour appear near $t\approx200$ (0.81); the last 50 steps add edges and texture.
+3. **Noise prediction removes the VAE's blur (§1, §4.2).** At similar 32×32 resolution, objects have sharp silhouettes and
+   consistent backgrounds; the remaining failures are abstract or ambiguous samples rather than averaged ones.
+4. **The cost is in sampling, not training stability.** The raw loss converged within ~15 epochs without any instability,
+   but generation needs 1,000 network evaluations per image.
+
