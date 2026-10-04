@@ -55,3 +55,7 @@ checkpoints/
 .DS_Store
 Thumbs.db
 token.txt
+
+# graphify (graph.json, graph.html, GRAPH_REPORT.md are tracked; caches and sidecars are not)
+graphify-out/.graphify_*
+graphify-out/cache/
