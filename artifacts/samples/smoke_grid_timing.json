@@ -1,0 +1,10 @@
+{
+  "num_samples": 16,
+  "seed": 42,
+  "weights": "ema",
+  "checkpoint": "artifacts/runs/smoke/best_checkpoint.pt",
+  "sampling_seconds_total": 36.601,
+  "sampling_seconds_per_image": 2.2876,
+  "device_name": "Quadro T2000",
+  "timestamp": "2026-10-03T14:57:13.294611+00:00"
+}

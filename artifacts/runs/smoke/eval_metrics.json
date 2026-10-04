@@ -1,0 +1,9 @@
+{
+  "timestamp": "2026-10-03T14:57:44.338876+00:00",
+  "checkpoint": "artifacts/runs/smoke/best_checkpoint.pt",
+  "weights": "ema",
+  "seed": 42,
+  "test_loss": 0.956989,
+  "total_samples": 10000,
+  "device_name": "Quadro T2000"
+}

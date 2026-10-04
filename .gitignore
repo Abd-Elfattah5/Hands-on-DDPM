@@ -31,17 +31,19 @@ wheels/
 
 # Data & Model Artifacts
 /data/
-artifacts/
+# Artifacts: metrics, sample grids and strips are tracked; weights (*.pt, see release
+# v0.1.0-ddpm-baseline), Drive downloads and the 5,000 benchmark sample batches are not.
+artifacts/downloads/
+artifacts/eval/samples_*/
 checkpoints/
-runs/
+/runs/
 *.pt
 *.pth
 *.onnx
 *.pdf
 
-# Jupyter Notebook checkpoints
+# Jupyter Notebook checkpoints (notebooks themselves are tracked, e.g. notebooks/ddpm_colab_training.ipynb)
 .ipynb_checkpoints/
-*.ipynb
 
 # IDE / Editor
 .vscode/

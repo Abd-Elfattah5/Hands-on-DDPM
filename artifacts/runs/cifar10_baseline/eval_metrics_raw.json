@@ -1,0 +1,9 @@
+{
+  "timestamp": "2026-10-04T18:34:55.148848+00:00",
+  "checkpoint": "artifacts/runs/cifar10_baseline/best_checkpoint.pt",
+  "weights": "raw",
+  "seed": 42,
+  "test_loss": 0.030941,
+  "total_samples": 10000,
+  "device_name": "Quadro T2000"
+}

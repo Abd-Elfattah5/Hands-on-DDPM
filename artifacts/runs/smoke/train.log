@@ -1,0 +1,6 @@
+2026-10-03T17:27:54+0300 [INFO] ddpm.trainer.artifacts/runs/smoke: Training on cuda | epochs 1-2 | batch 32 × accum 4 | mixed precision none
+2026-10-03T17:33:32+0300 [INFO] ddpm.trainer.artifacts/runs/smoke: Epoch 001 | train 0.9056 | val 0.7043 | val EMA 0.9978 | lr 1.41e-05 | 336s | 1774 MiB | best
+2026-10-03T17:40:47+0300 [INFO] ddpm.trainer.artifacts/runs/smoke: Epoch 002 | train 0.4246 | val 0.1563 | val EMA 0.9849 | lr 2.81e-05 | 433s | 1876 MiB | best
+2026-10-03T17:40:57+0300 [INFO] ddpm.trainer.artifacts/runs/smoke: Resumed from artifacts/runs/smoke/latest.pt at epoch 2 (global step 702)
+2026-10-03T17:40:57+0300 [INFO] ddpm.trainer.artifacts/runs/smoke: Training on cuda | epochs 3-3 | batch 32 × accum 4 | mixed precision none
+2026-10-03T17:46:59+0300 [INFO] ddpm.trainer.artifacts/runs/smoke: Epoch 003 | train 0.0772 | val 0.0425 | val EMA 0.9568 | lr 4.22e-05 | 360s | 1860 MiB | best

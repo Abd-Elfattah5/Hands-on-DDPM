@@ -1,16 +1,18 @@
-# Baseline DDPM on CIFAR-10 for the local GPU (Quadro T2000, 3 GB measured budget).
-# Effective batch = data.batch_size × training.grad_accum_steps = 32 × 4 = 128.
+# Colab configuration (e.g. T4, 15 GB). Identical model, diffusion and optimization settings to
+# cifar10_baseline.yaml, including the effective batch of 128; only the per-step batch, accumulation
+# steps, data workers and the default output_dir differ (spec FR-018a, ADR 0001 D2).
+# Effective batch = data.batch_size × training.grad_accum_steps = 128 × 1 = 128.
 experiment:
-  name: "cifar10_baseline"
+  name: "cifar10_colab"
   seed: 42
   device: "auto"
-  output_dir: "artifacts/runs/cifar10_baseline"
+  output_dir: "artifacts/runs/cifar10_colab"
 
 data:
   dataset: "cifar10"
   data_dir: "data"
-  batch_size: 32
-  num_workers: 4
+  batch_size: 128
+  num_workers: 2
   val_split: 0.1
   random_flip: true
 
@@ -41,7 +43,7 @@ training:
   lr: 0.0002
   weight_decay: 0.0
   warmup_steps: 5000
-  grad_accum_steps: 4
+  grad_accum_steps: 1
   gradient_clip_val: 1.0
   ema_decay: 0.9999
   mixed_precision: "none"
